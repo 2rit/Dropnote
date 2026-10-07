@@ -1,0 +1,3039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dropnote</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>
+  :root {
+    --bg: #fbf8f3; --card: #ffffff; --ink: #2b2622; --muted: #6b625a; --line: #e6ded3;
+    --soft: #f3ece0; --amber: #f0b04a; --amber-soft: #fbe6bd; --sage: #3f6b63; --danger: #b3261e; --heart: #e5484d;
+    /* iOS-like curves */
+    --ease: cubic-bezier(.25, .1, .25, 1);
+    --spring: cubic-bezier(.32, .72, 0, 1);
+    --spring-bounce: cubic-bezier(.34, 1.56, .64, 1);
+    --press: cubic-bezier(.2, .8, .2, 1);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    padding-top: env(safe-area-inset-top, 0px);
+    font-family: "Noto Sans Thai", "Sarabun", "Thonburi", "Helvetica Neue", system-ui, sans-serif;
+    font-size: 18px; line-height: 1.7; background: var(--bg); color: var(--ink);
+    min-height: 100vh; min-height: 100dvh; padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+    overscroll-behavior-y: contain;
+  }
+  button, input, textarea, select { font-family: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  .wrap { max-width: 560px; margin: 0 auto; padding: 28px 20px 8px; }
+  header {
+    margin-bottom: 22px; display: flex; justify-content: space-between;
+    align-items: flex-start; gap: 8px;
+  }
+  header > div:first-child { min-width: 0; flex: 1; }
+  .brand { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .brand #logo { width: 20px; height: 24px; flex: none; }
+  h1 {
+    font-size: 20px; line-height: 1.15; margin: 0; font-weight: 700;
+    white-space: nowrap;
+  }
+  .tag { margin: 3px 0 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
+  .lang { display: flex; gap: 2px; flex: none; background: var(--soft); padding: 2px; border-radius: 999px; }
+  .lang button {
+    min-width: 34px; height: 30px; border-radius: 999px; border: 0; background: transparent;
+    font-size: 12px; font-weight: 700; cursor: pointer; color: var(--muted); padding: 0 5px;
+    transition: background .25s var(--ease), color .25s var(--ease);
+  }
+  .lang button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+
+  @media (min-width: 360px) {
+    h1 { font-size: 22px; }
+    .brand #logo { width: 22px; height: 27px; }
+    .tag { font-size: 14px; }
+    .lang button { min-width: 36px; height: 32px; font-size: 12px; padding: 0 6px; }
+  }
+  @media (min-width: 400px) {
+    h1 { font-size: 26px; }
+    .brand #logo { width: 26px; height: 32px; }
+    .tag { font-size: 15px; }
+    .lang button { min-width: 40px; height: 34px; font-size: 13px; padding: 0 7px; }
+  }
+  @media (min-width: 440px) {
+    h1 { font-size: 28px; }
+    .tag { font-size: 16px; }
+    .lang button { min-width: 44px; height: 36px; font-size: 14px; padding: 0 8px; }
+  }
+
+  .view { display: none; }
+  .view.on { display: block; }
+  h2 { font-size: 19px; margin: 32px 0 10px; }
+  .hint { color: var(--muted); font-size: 16px; margin: 0 0 12px; }
+
+  .banner { display: none; background: var(--soft); border-radius: 12px; padding: 12px 16px; font-size: 15px; margin-bottom: 18px; }
+  .banner.err { background: #fbe4e1; color: var(--danger); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; padding: 0; border: 0; min-width: 0; }
+  .pick { position: relative; }
+  .pick input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .pick span {
+    display: inline-flex; align-items: center; min-height: 44px; padding: 6px 16px; border-radius: 999px;
+    border: 2px solid var(--line); background: var(--card); font-size: 16px;
+    transition: background .2s, color .2s, border-color .2s;
+  }
+  .pick input:checked + span { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .pick input:focus-visible + span { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+  /* icons */
+  .ic { display: inline-flex; flex: none; }
+  .ic svg { width: 24px; height: 24px; display: block; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* note card */
+  .note {
+    border: 1px solid var(--line); border-radius: 24px; padding: 26px 22px 8px; min-height: 220px; background: var(--card);
+    box-shadow: 0 1px 2px rgba(43, 38, 34, .04), 0 18px 36px -18px rgba(43, 38, 34, .22);
+  }
+  .note.empty {
+    display: flex; align-items: center; justify-content: center; text-align: center; color: var(--muted);
+    background: transparent; border: 2px dashed var(--line); box-shadow: none; padding: 26px 22px;
+  }
+  .note .text { font-size: 22px; line-height: 1.7; margin: 0 0 12px; white-space: pre-wrap; word-break: break-word; }
+  .meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15px; color: var(--muted); }
+  .meta.sub { font-size: 14px; }
+
+  /* action bar: separate icon buttons, same style */
+  .bar { display: flex; align-items: center; margin: 10px -6px 0; padding: 6px 0 4px; border-top: 1px solid var(--line); }
+  .bar .spacer { flex: 1; }
+  .act {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 46px; min-height: 46px; padding: 0 10px;
+    border: 0; background: transparent; color: var(--muted); border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer;
+    transition: color .2s, background .2s, transform .15s var(--ease);
+  }
+  .act:active { transform: scale(.88); }
+  .act[aria-pressed="true"] .ic svg { fill: currentColor; }
+  .act.heart[aria-pressed="true"] { color: var(--heart); }
+  .act.mark[aria-pressed="true"] { color: var(--sage); }
+  .act.talk[aria-expanded="true"] { color: var(--ink); }
+  .act.danger:active { color: var(--danger); }
+
+  .replies { border-top: 1px solid var(--line); margin: 0 0 8px; padding-top: 10px; }
+  .reply { padding: 8px 0; font-size: 16px; }
+  .reply .rm { font-size: 14px; color: var(--muted); }
+  .reply p { margin: 0; word-break: break-word; white-space: pre-wrap; }
+  .link { background: none; border: 0; color: var(--muted); font-size: 14px; text-decoration: underline; cursor: pointer; min-height: 36px; padding: 0 4px; }
+  .replyform { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+  .replyform input { flex: 1; min-width: 0; font-size: 17px; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--line); background: #fff; }
+
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border: 2px solid transparent; border-radius: 16px; font-size: 20px; font-weight: 700;
+    min-height: 58px; padding: 14px; margin-top: 20px; cursor: pointer; background: var(--amber); color: var(--ink);
+    box-shadow: 0 8px 18px -8px rgba(240, 176, 74, .9);
+    transition: transform .15s var(--ease), box-shadow .2s, opacity .2s, border-color .2s;
+  }
+  .btn:not(.ghost) { border-color: var(--amber); }
+  .btn:active { transform: scale(.975); box-shadow: 0 3px 8px -4px rgba(240, 176, 74, .9); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn.small { width: auto; min-height: 48px; font-size: 17px; padding: 8px 20px; margin-top: 0; }
+  .btn.ghost {
+    background: transparent; box-shadow: none;
+    border: 2px solid var(--line); color: var(--ink);
+  }
+  .btn.ghost:active { background: var(--soft); }
+  .btn .ic svg { width: 22px; height: 22px; }
+  .stat { text-align: center; color: var(--muted); font-size: 15px; margin-top: 14px; }
+
+  .lb { display: block; font-weight: 700; margin: 18px 0 6px; }
+  textarea, input[type=text] {
+    width: 100%; font-size: 19px; background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 12px 14px;
+    transition: border-color .2s;
+  }
+  textarea { min-height: 140px; resize: vertical; line-height: 1.6; }
+  textarea:focus, input[type=text]:focus { border-color: var(--ink); outline: none; }
+  .row { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 15px; margin: 6px 2px 0; }
+  .msg { margin-top: 14px; font-size: 16px; min-height: 26px; }
+  .msg.err { color: var(--danger); }
+  .msg.ok { color: var(--sage); font-weight: 600; }
+
+  .item { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px 4px; margin-bottom: 12px; }
+  .item p { margin: 0 0 4px; word-break: break-word; white-space: pre-wrap; }
+  .item .bar { margin-top: 6px; }
+  .summary { background: var(--soft); border-radius: 16px; padding: 14px 16px; margin-bottom: 8px; font-size: 16px; }
+
+  /* bottom nav */
+  nav {
+    position: fixed; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, .92); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line); display: flex; justify-content: center; padding-bottom: env(safe-area-inset-bottom);
+  }
+  nav .inner { display: flex; width: 100%; max-width: 560px; }
+  nav button {
+    flex: 1; border: 0; background: transparent; font-size: 14px; color: var(--muted); min-height: 68px; cursor: pointer; padding: 8px 2px 6px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; line-height: 1.3;
+    transition: color .2s;
+  }
+  nav .pill { display: inline-flex; padding: 4px 20px; border-radius: 999px; transition: background .3s var(--ease); }
+  nav button:active .pill { transform: scale(.94); }
+  nav button[aria-current="page"] { color: var(--ink); font-weight: 700; }
+  nav button[aria-current="page"] .pill { background: var(--amber-soft); }
+
+  /* dialogs */
+  dialog {
+    max-height: 92vh; max-height: 92dvh; overflow-y: auto; width: min(92vw, 420px); border: 0; border-radius: 24px; padding: 0;
+    max-width: min(92vw, 420px); background: var(--bg); color: var(--ink); box-shadow: 0 28px 60px -14px rgba(0, 0, 0, .45);
+  }
+  dialog::backdrop { background: rgba(43, 38, 34, .5); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  .dlgin { padding: 20px; }
+  dialog p { margin: 0 0 12px; }
+  .dlgbtns { display: flex; gap: 10px; justify-content: stretch; margin-top: 18px; }
+  .dlgbtns .btn { flex: 1; margin-top: 0; min-height: 50px; font-size: 16px; padding: 10px 8px; border-radius: 14px; }
+  .dlgbtns.two .btn {
+    flex: 1 1 0; margin-top: 0; min-height: 52px; min-width: 0;
+    font-size: 15px; font-weight: 700; padding: 10px 8px;
+    white-space: nowrap; gap: 6px;
+  }
+  .dlgbtns.two .btn .ic { flex: none; }
+  .dlgbtns.two .btn .ic svg { width: 20px; height: 20px; }
+  .dlgbtns.sticky { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0 2px; margin-top: 4px; }
+  .shHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .shHead strong { font-size: 19px; }
+  .x { width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--soft); color: var(--ink); cursor: pointer; display: grid; place-items: center; padding: 0; transition: transform .15s var(--ease); }
+  .x:active { transform: scale(.9); }
+  .x .ic svg { width: 20px; height: 20px; }
+  #shareImg {
+    width: auto; max-width: 100%; max-height: 42vh; margin: 0 auto; border-radius: 14px; display: block;
+    box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .4);
+    -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto;
+    touch-action: manipulation; cursor: pointer;
+  }
+  .swatches { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; border: 0; padding: 2px; margin: 16px 0 6px; min-width: 0; }
+  .sw { position: relative; display: block; }
+  .sw input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .sw .dot {
+    display: block; aspect-ratio: 1; border-radius: 50%; background: linear-gradient(135deg, var(--a), var(--b));
+    border: 2px solid rgba(43, 38, 34, .14); position: relative; transition: transform .25s var(--ease), box-shadow .25s var(--ease);
+  }
+  .sw .dot::after { content: ""; position: absolute; width: 34%; height: 34%; border-radius: 50%; background: var(--c); right: 12%; bottom: 12%; }
+  .sw input:checked + .dot { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--ink); transform: scale(.92); }
+  .sw input:focus-visible + .dot { outline: 3px solid var(--ink); outline-offset: 4px; }
+  .swName { text-align: center; color: var(--muted); font-size: 15px; margin: 0 0 10px; min-height: 24px; }
+  #shFmt { justify-content: center; margin-bottom: 4px; }
+
+
+  /* write box: faint hint + counter live inside the field */
+  .tawrap { position: relative; }
+  .tawrap textarea { display: block; margin: 0; min-height: 170px; padding-bottom: 42px; }
+  .tawrap .inhint, .tawrap .incnt { position: absolute; bottom: 12px; font-size: 14px; color: var(--muted); opacity: .6; pointer-events: none; line-height: 1.3; }
+  .tawrap .inhint { left: 16px; }
+  .tawrap .incnt { right: 16px; font-variant-numeric: tabular-nums; }
+  .tawrap:focus-within .inhint, .tawrap:focus-within .incnt { opacity: .8; }
+
+  /* ---- motion ---- */
+  .view.on { animation: none; }
+  .view.on > * { animation: rise .5s var(--ease) both; }
+  .view.on > *:nth-child(2) { animation-delay: .06s; }
+  .view.on > *:nth-child(3) { animation-delay: .12s; }
+  .view.on > *:nth-child(4) { animation-delay: .18s; }
+  .view.on > *:nth-child(5) { animation-delay: .24s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  .note.drop { animation: dropIn .75s cubic-bezier(.2, 1.15, .35, 1) both; transform-origin: 50% 0; }
+  @keyframes dropIn {
+    0% { opacity: 0; transform: translateY(-46px) rotate(-2.2deg) scale(.95); }
+    55% { opacity: 1; transform: translateY(7px) rotate(.7deg) scale(1.005); }
+    100% { opacity: 1; transform: none; }
+  }
+  .note.drop > :not(.bigheart) { animation: rise .55s var(--ease) both; }
+  .note.drop > :nth-child(1) { animation-delay: .14s; }
+  .note.drop > :nth-child(2) { animation-delay: .22s; }
+  .note.drop > :nth-child(3) { animation-delay: .28s; }
+  .note.drop > :nth-child(4) { animation-delay: .36s; }
+  .replies { animation: rise .35s var(--ease) both; }
+
+  .act { position: relative; }
+  .act .ic svg { fill: transparent; }
+  .bar .act { flex: 1; min-width: 0; padding: 0; }
+  .act .cnt { position: absolute; top: 4px; left: calc(50% + 6px); min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px; background: var(--ink); color: #fff; font-size: 11px; line-height: 17px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; pointer-events: none; }
+  .act .cnt:empty { display: none; }
+  .act.heart[aria-pressed="true"] .cnt { background: var(--heart); }
+  .act.pop .ic { animation: heartPop .38s cubic-bezier(.3, 1.5, .5, 1); }
+  @keyframes heartPop { 0% { transform: scale(1); } 45% { transform: scale(1.28); } 100% { transform: scale(1); } }
+  .act.snap .ic { animation: snapMark .45s cubic-bezier(.3, 1.5, .5, 1); transform-origin: 50% 100%; }
+  @keyframes snapMark { 0% { transform: scale(1); } 35% { transform: scale(.85, 1.12); } 70% { transform: scale(1.08, .96); } 100% { transform: scale(1); } }
+
+  .btn::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .45) 50%, transparent 70%); transform: translateX(-120%); pointer-events: none; }
+  .btn { position: relative; overflow: hidden; }
+  .btn.shine::after { animation: shine .8s var(--ease); }
+  @keyframes shine { to { transform: translateX(120%); } }
+
+  nav button[aria-current="page"] .pill { animation: pillIn .45s cubic-bezier(.2, 1.4, .4, 1); }
+  nav button[aria-current="page"] .ic { animation: navHop .45s cubic-bezier(.2, 1.4, .4, 1); }
+  @keyframes pillIn { from { transform: scaleX(.5); opacity: .4; } to { transform: none; opacity: 1; } }
+  @keyframes navHop { 0% { transform: translateY(3px) scale(.85); } 60% { transform: translateY(-3px) scale(1.1); } 100% { transform: none; } }
+
+  dialog[open] { animation: sheetIn .42s cubic-bezier(.2, 1.1, .35, 1); }
+  @keyframes sheetIn { from { opacity: 0; transform: translateY(34px) scale(.96); } to { opacity: 1; transform: none; } }
+  dialog[open]::backdrop { animation: fade .3s ease; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  #shareImg.swap { animation: swap .4s var(--ease); }
+  @keyframes swap { from { opacity: .25; transform: scale(.965); } to { opacity: 1; transform: none; } }
+  .sw input:checked + .dot { animation: selPop .4s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes selPop { 0% { transform: scale(.7); } 100% { transform: scale(.92); } }
+  .msg.ok, .msg.err { animation: rise .3s var(--ease); }
+
+  /* platform sheet */
+  #platDlg { margin: auto auto 0; width: 100%; max-width: 520px; border-radius: 26px 26px 0 0; padding-bottom: env(safe-area-inset-bottom); }
+  #platDlg[open] { animation: sheetUp .45s cubic-bezier(.2, 1.05, .3, 1); }
+  @keyframes sheetUp { from { transform: translateY(100%); } to { transform: none; } }
+  .plats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 6px; padding: 4px 0 6px; }
+  .plat { border: 0; background: none; padding: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 14px; color: var(--ink); line-height: 1.25; animation: rise .45s var(--ease) both; }
+  .plat .tile { width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 26px; transition: transform .18s var(--ease); box-shadow: 0 8px 16px -8px rgba(0, 0, 0, .45); }
+  .plat:active .tile { transform: scale(.86); }
+  .plat .tile svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .t-instagram { background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%); }
+  .t-tiktok { background: #111; }
+  .plat .t-facebook { background: #1877f2; font-family: Georgia, serif; font-size: 34px; }
+  .plat .t-line { background: #06c755; font-size: 14px; letter-spacing: -.2px; }
+  .t-x { background: #000; }
+  .t-copy { background: var(--soft); color: var(--ink); box-shadow: none; }
+  .t-more { background: var(--ink); }
+
+
+  /* share dialog: compact controls that expand on tap */
+  .ctrls { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 16px 0 8px; }
+  .ctrl { display: flex; align-items: center; gap: 6px; min-height: 52px; padding: 6px 8px; border: 2px solid var(--line); background: var(--card); border-radius: 16px; cursor: pointer; text-align: left; min-width: 0; transition: border-color .2s, background .2s, transform .15s var(--ease); }
+  .ctrl:active { transform: scale(.96); }
+  .ctrl[aria-expanded="true"] { border-color: var(--ink); background: var(--soft); }
+  .cdot { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13px; color: var(--ink); background: var(--soft); position: relative; }
+  .cdot.th { background: linear-gradient(135deg, var(--a), var(--b)); border: 2px solid rgba(43, 38, 34, .14); }
+  .cdot.th::after { content: ""; position: absolute; width: 34%; height: 34%; border-radius: 50%; background: var(--c); right: 8%; bottom: 8%; }
+  .cdot .shape { display: block; border: 2px solid currentColor; border-radius: 3px; transition: width .25s var(--ease), height .25s var(--ease); }
+  .ctext { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+  .ctext small { font-size: 11px; color: var(--muted); }
+  .ctext b { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pan { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .38s var(--ease); }
+  .pan.open { grid-template-rows: 1fr; }
+  .pan > div { overflow: hidden; min-height: 0; visibility: hidden; opacity: 0; transition: opacity .25s ease, visibility 0s .38s; }
+  .pan.open > div { visibility: visible; opacity: 1; transition: opacity .3s ease .08s, visibility 0s; }
+  .pan .swatches { margin: 12px 0 2px; }
+  .pan .chips { margin: 12px 0 2px; justify-content: center; }
+  .fonts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; border: 0; padding: 2px; margin: 12px 0 2px; min-width: 0; }
+  .fo { position: relative; display: block; }
+  .fo input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .fo .box { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 12px; border: 2px solid var(--line); border-radius: 14px; background: var(--card); transition: border-color .2s, background .2s, transform .2s var(--ease); }
+  .fo .box b { font-size: 21px; font-weight: 400; line-height: 1.35; }
+  .fo .box small { font-size: 12px; color: var(--muted); }
+  .fo input:checked + .box { border-color: var(--ink); background: var(--soft); }
+  .fo input:active + .box { transform: scale(.97); }
+  .fo input:focus-visible + .box { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+
+  /* ---- v3: smoother, calmer ---- */
+  html, body, button, .note { touch-action: manipulation; }
+  html.lock, html.lock body { overflow: hidden; }
+  nav { transition: transform .28s var(--ease); }
+  body.typing nav { transform: translateY(110%); }
+  body.typing { padding-bottom: 24px; }
+  .note { position: relative; cursor: default; }
+  .note .text { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overflow-wrap: anywhere; }
+  .note.empty { flex-direction: column; gap: 14px; cursor: pointer; min-height: 240px; }
+  .note.empty:active { background: var(--soft); }
+  .eico { color: var(--amber); animation: bob 2.4s ease-in-out infinite; }
+  .eico svg { width: 38px; height: 46px; fill: currentColor; stroke: none; display: block; }
+  @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+  .note.out { animation: noteOut .22s ease-in forwards; }
+  @keyframes noteOut { to { opacity: 0; transform: translateY(14px) scale(.97) rotate(1.6deg); } }
+  .btn.busy { opacity: .7; pointer-events: none; }
+  .btn.done { background: var(--sage); color: #fff; box-shadow: 0 8px 18px -8px rgba(63, 107, 99, .8); border-color: var(--sage); }
+  .btn .ic:empty { display: none; }
+  .btn .ic { animation: none; }
+  .btn.done .ic { animation: checkIn .45s cubic-bezier(.3, 1.6, .5, 1); }
+  @keyframes checkIn { from { transform: scale(.3) rotate(-30deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  /* send button: icon-only — no text */
+  #send { gap: 0; }
+  #send #sendLbl,
+  #send > span:not(.ic) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #send .ic { display: inline-flex; }
+  #send .ic svg { width: 24px; height: 24px; }
+  .tawrap {
+    border-radius: 16px;
+  }
+  .tawrap.sending {
+    animation: sendPulse .55s var(--spring);
+  }
+  @keyframes sendPulse {
+    0%   { transform: scale(1); box-shadow: 0 0 0 0 rgba(63, 107, 99, 0); }
+    40%  { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(63, 107, 99, .18); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(63, 107, 99, 0); }
+  }
+  .tawrap.sending textarea {
+    border-color: var(--sage) !important;
+    background: linear-gradient(180deg, #fff 0%, #f3faf7 100%);
+  }
+  .tawrap.fly {
+    animation: flyAway .7s var(--spring) forwards;
+    pointer-events: none;
+  }
+  @keyframes flyAway {
+    0%   { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); filter: blur(0); }
+    25%  { opacity: 1; transform: translateY(-8px) scale(1.03) rotate(-.6deg); }
+    100% { opacity: 0; transform: translateY(-72px) scale(.88) rotate(-2.5deg); filter: blur(2px); }
+  }
+  .tawrap.back { animation: rise .42s var(--spring) both; }
+  .tawrap .sendburst {
+    position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 14px; z-index: 2;
+  }
+  .tawrap .sendburst i {
+    position: absolute; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--sage); opacity: 0;
+    animation: burstDot .7s var(--spring-bounce) forwards;
+  }
+  @keyframes burstDot {
+    0%   { opacity: 0; transform: translate(0,0) scale(.4); }
+    20%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.2); }
+  }
+  .sendok {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.85);
+    display: grid; place-items: center;
+    width: 72px; height: 72px;
+    background: rgba(255,255,255,.96); border: 1px solid var(--line);
+    box-shadow: 0 12px 36px -10px rgba(63,107,99,.35);
+    border-radius: 50%; padding: 0; z-index: 3;
+    opacity: 0; pointer-events: none;
+    animation: sendOkIn .5s var(--spring-bounce) forwards;
+  }
+  .sendok .ic { color: var(--sage); }
+  .sendok .ic svg { width: 32px; height: 32px; stroke-width: 2.4; }
+  .sendok b, .sendok span:not(.ic) { display: none !important; } /* icon only */
+  @keyframes sendOkIn {
+    0%   { opacity: 0; transform: translate(-50%, -40%) scale(.6); }
+    60%  { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+  .sendok.out {
+    animation: sendOkOut .35s var(--ease) forwards;
+  }
+  @keyframes sendOkOut {
+    to { opacity: 0; transform: translate(-50%, -60%) scale(.85); }
+  }
+  #nick.dim {
+    opacity: .35;
+    transition: opacity .35s var(--ease);
+  }
+  #v-write .btn.done {
+    animation: btnDonePop .45s var(--spring-bounce);
+  }
+  @keyframes btnDonePop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+
+  #nick { margin-top: 12px; }
+  .tawrap .incnt { opacity: 0; transition: opacity .2s, color .2s; }
+  .tawrap .incnt.show { opacity: .85; }
+  .tawrap .incnt.warn { color: var(--danger); opacity: 1; }
+
+  .toast { position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translate(-50%, 16px); max-width: min(88vw, 420px); background: rgba(43, 38, 34, .94); color: #fff; padding: 11px 20px; border-radius: 999px; font-size: 16px; line-height: 1.4; text-align: center; opacity: 0; pointer-events: none; z-index: 60; transition: opacity .25s ease, transform .35s var(--ease); box-shadow: 0 12px 28px -10px rgba(0, 0, 0, .5); }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  body.typing .toast { bottom: 24px; }
+
+  .summary { display: flex; gap: 10px; background: none; padding: 0; margin-bottom: 6px; }
+  .sum { flex: 1; display: flex; align-items: center; gap: 10px; background: var(--soft); border-radius: 16px; padding: 12px 16px; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .sum .ic svg { width: 22px; height: 22px; }
+  .sum.h .ic { color: var(--heart); }
+  .sum.h .ic svg { fill: var(--heart); }
+  .imeta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: 14px; margin: 2px 0 0; }
+  .imeta > span { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
+  .imeta .ic svg { width: 16px; height: 16px; stroke-width: 2; }
+  .emptybox { text-align: center; padding: 20px 8px 8px; color: var(--muted); }
+  .emptybox p { margin: 0 0 12px; font-size: 16px; }
+  .emptybox .btn { margin: 0 auto; }
+  .item { animation: rise .4s var(--ease) both; }
+
+  /* text panel */
+  .tp { display: grid; gap: 10px; margin: 12px 0 2px; }
+  .seg { display: flex; gap: 4px; background: var(--soft); padding: 4px; border-radius: 14px; }
+  .segb { flex: 1; min-height: 44px; border: 0; background: transparent; border-radius: 10px; cursor: pointer; color: var(--muted); display: grid; place-items: center; transition: background .2s, color .2s, box-shadow .2s; }
+  .segb[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 2px 8px -3px rgba(0, 0, 0, .3); }
+  .segb svg, .cdot svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
+  .row2 { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+  .stepper { display: flex; align-items: center; gap: 4px; background: var(--soft); border-radius: 14px; padding: 4px; }
+  .stb { width: 50px; height: 44px; border: 0; border-radius: 10px; background: var(--card); font-size: 16px; font-weight: 700; cursor: pointer; transition: transform .15s var(--ease), opacity .2s; }
+  .stb:active { transform: scale(.92); }
+  .stb:disabled { opacity: .35; }
+  .szv { flex: 1; min-width: 64px; text-align: center; font-weight: 700; font-size: 15px; border: 0; background: none; cursor: pointer; min-height: 44px; }
+  .qt { white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; min-height: 52px; padding: 6px 14px; border-radius: 14px; border: 2px solid var(--line); background: var(--card); font-size: 15px; cursor: pointer; transition: background .2s, color .2s, border-color .2s; }
+  .qt b { font-family: Georgia, serif; font-size: 26px; line-height: 1; }
+  .qt[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  /* category chips + theme previews */
+  .cats { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 8px; margin: 12px -2px 0; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .cats::-webkit-scrollbar { display: none; }
+  .catb { flex: none; min-height: 38px; padding: 0 15px; border-radius: 999px; border: 2px solid var(--line); background: var(--card); font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .2s, color .2s, border-color .2s, transform .15s var(--ease); }
+  .catb:active { transform: scale(.94); }
+  .catb[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .pan .swatches { grid-template-columns: repeat(4, 1fr); gap: 14px 10px; margin: 6px 0 2px; }
+  .sw .dot { aspect-ratio: 5 / 3; border-radius: 14px; }
+  .sw .dot::before { content: ""; position: absolute; left: 22%; right: 22%; top: 16%; bottom: 16%; border-radius: 6px; background: var(--k, transparent); border: 1.5px solid var(--kb, transparent); }
+  .sw .dot::after { width: 26%; height: 5px; border-radius: 3px; left: 37%; right: auto; bottom: 27%; }
+  .swn { display: block; text-align: center; font-size: 12px; line-height: 1.3; margin-top: 6px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sw input:checked ~ .swn { color: var(--ink); font-weight: 700; }
+
+    .fsz { margin: 12px 0 0; }
+  .fsz .stb { flex: 1; }
+  .fsz .szv { flex: none; min-width: 48px; font-size: 20px; }
+  .szv[hidden] { display: none; }
+
+  /* v11: favourites, auto-theme, shuffle, watermark */
+  .sw { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  .sw .dot { transition: transform .25s var(--ease), box-shadow .25s var(--ease); }
+  .sw.holding .dot { transform: scale(.88); }
+  .favmark { position: absolute; top: -6px; right: -4px; width: 24px; height: 24px; border-radius: 50%; background: var(--card); color: #f0a020; font-size: 14px; line-height: 24px; text-align: center; box-shadow: 0 1px 5px rgba(0, 0, 0, .28); pointer-events: none; z-index: 2; }
+  .favhint { grid-column: 1 / -1; text-align: center; margin: 14px 0 6px; }
+  .tog { margin: 12px 0 0; }
+  #cdShuf.spin { animation: spinDie .55s var(--ease); }
+  @keyframes spinDie { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+
+  /* ========== iOS-fluid polish (visible) ========== */
+  html { scroll-behavior: smooth; }
+  @supports (font: -apple-system-body) {
+    body { font-family: -apple-system, "SF Pro Text", "Noto Sans Thai", "Sarabun", "Thonburi", system-ui, sans-serif; }
+  }
+
+  /* every tappable: longer spring + clear press dim */
+  .act, .btn, .lang button, .catb, .ctrl, .plat, .stb, .qt, .x, .segb, nav button, .pick span {
+    -webkit-user-select: none; user-select: none;
+  }
+  .act, .lang button, .catb, .ctrl, .stb, .qt, .x, .segb {
+    transition:
+      transform .32s var(--spring),
+      background .28s var(--ease),
+      color .28s var(--ease),
+      border-color .28s var(--ease),
+      box-shadow .28s var(--ease),
+      opacity .2s var(--ease) !important;
+  }
+  .act:active, .lang button:active, .catb:active, .ctrl:active,
+  .stb:active, .qt:active, .x:active, .segb:active {
+    transform: scale(.9) !important;
+    opacity: .85;
+  }
+  .btn {
+    transition: transform .3s var(--spring), box-shadow .3s var(--ease), background .3s var(--ease), opacity .2s !important;
+  }
+  .btn:active {
+    transform: scale(.96) !important;
+    box-shadow: 0 2px 8px -4px rgba(240, 176, 74, .7) !important;
+  }
+  .plat:active .tile { transform: scale(.84) !important; transition: transform .22s var(--spring); }
+  nav button:active .pill { transform: scale(.9); }
+
+  /* note card — big, obvious bounce when a note lands */
+  .note {
+    transition: box-shadow .4s var(--spring), border-color .3s var(--ease), background .3s var(--ease);
+  }
+  .note.drop {
+    animation: dropIn .7s var(--spring-bounce) both !important;
+  }
+  @keyframes dropIn {
+    0%   { opacity: 0; transform: translateY(-40px) scale(.92); }
+    55%  { opacity: 1; transform: translateY(6px) scale(1.02); }
+    75%  { transform: translateY(-2px) scale(.995); }
+    100% { opacity: 1; transform: none; }
+  }
+  .note.out {
+    animation: noteOut .22s var(--press) forwards !important;
+  }
+  @keyframes noteOut {
+    to { opacity: 0; transform: translateY(16px) scale(.96); }
+  }
+  .note.drop > :not(.bigheart) { animation: rise .5s var(--spring) both; }
+  .note.drop > :nth-child(1) { animation-delay: .1s; }
+  .note.drop > :nth-child(2) { animation-delay: .16s; }
+  .note.drop > :nth-child(3) { animation-delay: .22s; }
+  .note.drop > :nth-child(4) { animation-delay: .28s; }
+
+  /* tab content — clear rise on every switch */
+  .view.on > * { animation: rise .48s var(--spring) both !important; }
+  .view.on > *:nth-child(2) { animation-delay: .05s !important; }
+  .view.on > *:nth-child(3) { animation-delay: .1s !important; }
+  .view.on > *:nth-child(4) { animation-delay: .15s !important; }
+  .view.on > *:nth-child(5) { animation-delay: .2s !important; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* heart pop — bigger bounce */
+  .act.pop .ic { animation: heartPop .5s var(--spring-bounce) !important; }
+  @keyframes heartPop {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.45); }
+    60%  { transform: scale(.92); }
+    100% { transform: scale(1); }
+  }
+  .act.snap .ic { animation: snapMark .48s var(--spring-bounce) !important; transform-origin: 50% 100%; }
+  @keyframes snapMark {
+    0%   { transform: scale(1); }
+    25%  { transform: scale(.8, 1.2); }
+    55%  { transform: scale(1.15, .9); }
+    100% { transform: scale(1); }
+  }
+
+  /* bottom nav — stronger glass + hop */
+  nav {
+    background: rgba(255, 255, 255, .78) !important;
+    -webkit-backdrop-filter: saturate(200%) blur(24px) !important;
+    backdrop-filter: saturate(200%) blur(24px) !important;
+    transition: transform .36s var(--spring) !important;
+  }
+  nav button[aria-current="page"] .pill {
+    animation: pillIn .45s var(--spring-bounce) !important;
+  }
+  nav button[aria-current="page"] .ic {
+    animation: navHop .5s var(--spring-bounce) !important;
+  }
+  @keyframes pillIn {
+    from { transform: scale(.4); opacity: .3; }
+    60%  { transform: scale(1.08); }
+    to   { transform: none; opacity: 1; }
+  }
+  @keyframes navHop {
+    0%   { transform: translateY(4px) scale(.8); }
+    50%  { transform: translateY(-5px) scale(1.15); }
+    100% { transform: none; }
+  }
+  body.typing nav { transform: translateY(110%) !important; }
+
+  /* dialogs — clear sheet motion */
+  dialog {
+    border-radius: 24px !important;
+    box-shadow: 0 28px 80px -12px rgba(0, 0, 0, .4), 0 0 0 1px rgba(0,0,0,.05) !important;
+  }
+  dialog[open] {
+    animation: sheetIn .45s var(--spring) !important;
+  }
+  @keyframes sheetIn {
+    from { opacity: 0; transform: translateY(40px) scale(.94); }
+    to   { opacity: 1; transform: none; }
+  }
+  dialog[open]::backdrop {
+    animation: fade .3s ease !important;
+    background: rgba(43, 38, 34, .48) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(150%) !important;
+    backdrop-filter: blur(12px) saturate(150%) !important;
+  }
+  #platDlg { border-radius: 24px 24px 0 0 !important; }
+  #platDlg[open] {
+    animation: sheetUp .48s var(--spring) !important;
+  }
+  @keyframes sheetUp {
+    from { transform: translateY(100%); }
+    to   { transform: none; }
+  }
+
+  /* toast */
+  .toast {
+    transition: opacity .25s ease, transform .42s var(--spring) !important;
+    box-shadow: 0 16px 40px -8px rgba(0, 0, 0, .5) !important;
+  }
+  .toast.show {
+    opacity: 1 !important;
+    transform: translate(-50%, 0) !important;
+  }
+
+  /* share preview */
+  #shareImg.swap { animation: swap .4s var(--spring) !important; }
+  @keyframes swap {
+    from { opacity: .15; transform: scale(.94); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .pan { transition: grid-template-rows .42s var(--spring) !important; }
+
+  .eico { animation: bob 2.6s ease-in-out infinite !important; }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-10px); }
+  }
+
+  .item { animation: rise .4s var(--spring) both !important; }
+
+  textarea, input[type=text] {
+    transition: border-color .25s var(--ease), box-shadow .25s var(--ease) !important;
+  }
+  textarea:focus, input[type=text]:focus {
+    border-color: var(--ink) !important;
+    box-shadow: 0 0 0 4px rgba(43, 38, 34, .1) !important;
+    outline: none !important;
+  }
+  .replyform input:focus {
+    border-color: var(--ink) !important;
+    box-shadow: 0 0 0 3px rgba(43, 38, 34, .1) !important;
+  }
+
+  .pick span {
+    transition: background .25s var(--ease), color .25s var(--ease), border-color .25s var(--ease), transform .22s var(--press) !important;
+  }
+  .pick:active span { transform: scale(.94); }
+
+  /* page crossfade helper used by JS */
+  .wrap.switching {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: none !important;
+  }
+  .wrap.switch-in {
+    opacity: 1;
+    transform: none;
+    transition: opacity .38s var(--spring), transform .38s var(--spring) !important;
+  }
+
+
+  /* ========== Me page: pro layout & type ========== */
+  #v-me .me-hero {
+    display: none;
+    gap: 10px;
+    margin: 0 0 22px;
+  }
+  #v-me .me-hero.on { display: grid; grid-template-columns: 1fr 1fr; }
+  #v-me .sum {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 18px 18px 16px;
+    border-radius: 20px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    box-shadow: 0 1px 2px rgba(43,38,34,.04), 0 12px 28px -16px rgba(43,38,34,.18);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+  }
+  #v-me .sum .ic { color: var(--muted); }
+  #v-me .sum .ic svg { width: 20px; height: 20px; }
+  #v-me .sum.h .ic { color: var(--heart); }
+  #v-me .sum.h .ic svg { fill: var(--heart); stroke: var(--heart); }
+  #v-me .sum .slbl {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  #v-me .me-sec { margin-bottom: 28px; }
+  #v-me .me-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 12px;
+    padding: 0 2px;
+  }
+  #v-me .me-head h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #v-me .me-count {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    background: var(--soft);
+    padding: 3px 10px;
+    border-radius: 999px;
+    min-width: 28px;
+    text-align: center;
+  }
+  #v-me .me-count:empty { display: none; }
+
+  #v-me .item {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 16px 16px 8px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 2px rgba(43,38,34,.03), 0 10px 24px -18px rgba(43,38,34,.16);
+    transition: transform .28s var(--spring), box-shadow .28s var(--ease);
+  }
+  #v-me .item:active {
+    transform: scale(.985);
+  }
+  #v-me .item > p {
+    margin: 0 0 10px;
+    font-size: 17px;
+    line-height: 1.55;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  #v-me .imeta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin: 0 0 2px;
+    padding: 0 1px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  #v-me .imeta > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  #v-me .imeta .ic svg { width: 14px; height: 14px; stroke-width: 2.1; opacity: .85; }
+  #v-me .item .bar {
+    margin: 6px -4px 0;
+    padding: 4px 0 2px;
+    border-top: 1px solid var(--line);
+  }
+  #v-me .item .act {
+    min-height: 42px;
+    color: var(--muted);
+  }
+
+  #v-me .emptybox {
+    text-align: center;
+    padding: 32px 20px 24px;
+    background: var(--card);
+    border: 1.5px dashed var(--line);
+    border-radius: 20px;
+    color: var(--muted);
+  }
+  #v-me .emptybox p {
+    margin: 0 0 18px;
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+  #v-me .emptybox .btn {
+    width: auto;
+    min-width: 140px;
+    margin: 0 auto;
+    display: inline-flex;
+  }
+  #v-me .hint {
+    text-align: center;
+    padding: 22px 18px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--muted);
+    background: var(--soft);
+    border-radius: 16px;
+    margin: 0;
+    max-width: 100%;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  /* global type polish */
+  h1 {
+    letter-spacing: -0.025em;
+  }
+  .tag {
+    letter-spacing: 0.01em;
+    font-weight: 500;
+  }
+  .note .text {
+    letter-spacing: -0.015em;
+    font-weight: 500;
+  }
+  .note .meta {
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  .stat {
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  .lb, .btn {
+    letter-spacing: -0.01em;
+  }
+
+
+  /* ========== Dark mode ========== */
+  html[data-theme="dark"] {
+    --bg: #141210;
+    --card: #1e1b18;
+    --ink: #f3ebe1;
+    --muted: #a89f94;
+    --line: #2f2a25;
+    --soft: #26211c;
+    --amber: #f0b04a;
+    --amber-soft: #3d3020;
+    --sage: #6bb3a5;
+    --danger: #ff6b63;
+    --heart: #ff5a5f;
+  }
+  html[data-theme="dark"] body { color: var(--ink); background: var(--bg); }
+  html[data-theme="dark"] nav {
+    background: rgba(30, 27, 24, .86) !important;
+    border-top-color: var(--line);
+  }
+  html[data-theme="dark"] .note {
+    box-shadow: 0 1px 2px rgba(0,0,0,.2), 0 18px 36px -18px rgba(0,0,0,.55);
+  }
+  html[data-theme="dark"] .note.empty {
+    border-color: var(--line);
+    background: transparent;
+  }
+  html[data-theme="dark"] textarea,
+  html[data-theme="dark"] input[type=text],
+  html[data-theme="dark"] .replyform input {
+    background: var(--card);
+    color: var(--ink);
+    border-color: var(--line);
+  }
+  html[data-theme="dark"] dialog {
+    background: var(--bg);
+    color: var(--ink);
+  }
+  html[data-theme="dark"] .toast {
+    background: rgba(243, 235, 225, .95);
+    color: #1a1612;
+  }
+  html[data-theme="dark"] .btn.ghost {
+    background: transparent; border-color: var(--line); color: var(--ink);
+  }
+  html[data-theme="dark"] .btn.ghost:active { background: var(--soft); }
+  html[data-theme="dark"] .t-copy { background: var(--soft); color: var(--ink); }
+  html[data-theme="dark"] .sendok {
+    background: rgba(30, 27, 24, .96);
+    border-color: var(--line);
+  }
+  html[data-theme="dark"] .sendok .ic { color: var(--sage); }
+  html[data-theme="dark"] #v-me .sum,
+  html[data-theme="dark"] #v-me .item {
+    box-shadow: 0 1px 2px rgba(0,0,0,.25), 0 12px 28px -16px rgba(0,0,0,.5);
+  }
+
+  /* theme toggle — single clean icon that swaps via CSS */
+  .theme-btn {
+    width: 36px; height: 36px; border: 0; border-radius: 50%;
+    background: var(--soft); color: var(--ink); cursor: pointer;
+    display: grid; place-items: center; padding: 0; flex: none;
+    transition: transform .28s var(--spring), background .25s var(--ease);
+  }
+  .theme-btn:active { transform: scale(.9); }
+  .theme-btn svg {
+    width: 18px; height: 18px; fill: none; stroke: currentColor;
+    stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round;
+    grid-area: 1 / 1;
+  }
+  .theme-btn .sun { display: block; }
+  .theme-btn .moon { display: none; }
+  html[data-theme="dark"] .theme-btn .sun { display: none; }
+  html[data-theme="dark"] .theme-btn .moon { display: block; }
+  .header-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+  @media (min-width: 380px) {
+    .theme-btn { width: 40px; height: 40px; }
+    .theme-btn svg { width: 20px; height: 20px; }
+    .header-actions { gap: 10px; }
+  }
+
+  /* swipe note */
+  #note.swiping { transition: none !important; }
+  #note.swipe-hint::after {
+    content: attr(data-hint);
+    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+    font-size: 13px; color: var(--muted); opacity: .7; pointer-events: none;
+    white-space: nowrap; font-weight: 500;
+  }
+  .note { touch-action: pan-y; }
+
+  /* onboarding */
+  #onboardDlg {
+    width: min(92vw, 400px);
+    border-radius: 28px;
+    padding: 0;
+    border: 0;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  #onboardDlg::backdrop {
+    background: rgba(20, 16, 12, .55);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  .ob-in { padding: 28px 24px 22px; text-align: center; }
+  .ob-logo {
+    width: 56px; height: 68px; margin: 0 auto 14px;
+    color: var(--amber);
+  }
+  .ob-logo svg { width: 100%; height: 100%; display: block; }
+  .ob-in h2 {
+    margin: 0 0 8px; font-size: 24px; font-weight: 700;
+    letter-spacing: -0.02em; color: var(--ink);
+  }
+  .ob-in .ob-lead {
+    margin: 0 0 22px; font-size: 16px; line-height: 1.55; color: var(--muted);
+  }
+  .ob-steps {
+    display: grid; gap: 12px; text-align: left; margin: 0 0 24px;
+  }
+  .ob-step {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; padding: 14px 14px;
+  }
+  .ob-num {
+    flex: none; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--amber-soft); color: var(--ink);
+    font-size: 14px; font-weight: 700;
+    display: grid; place-items: center;
+  }
+  html[data-theme="dark"] .ob-num { background: var(--soft); color: var(--amber); }
+  .ob-step strong {
+    display: block; font-size: 15px; font-weight: 700; margin-bottom: 2px;
+  }
+  .ob-step span {
+    font-size: 14px; color: var(--muted); line-height: 1.4;
+  }
+  .ob-in .btn { margin-top: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="brand">
+        <svg id="logo" width="26" height="32" viewBox="0 0 26 32" aria-hidden="true"><path d="M13 1C13 1 2 14 2 21a11 11 0 0 0 22 0C24 14 13 1 13 1z" fill="#f0b04a"/></svg>
+        <h1>Dropnote</h1>
+      </div>
+      <p class="tag" data-i="tagline"></p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="theme-btn" id="themeBtn" aria-label="Theme">
+        <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z"/></svg>
+      </button>
+      <div class="lang" role="group" aria-label="Language">
+        <button data-lang="en" aria-pressed="true" lang="en">EN</button>
+        <button data-lang="th" aria-pressed="false" lang="th">TH</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" role="alert"></div>
+  <div class="sr" id="sr" role="status"></div>
+
+  <section class="view on" id="v-home">
+    <div class="note empty" id="note"></div>
+    <button class="btn" id="rand"></button>
+    <div class="stat" id="stat"></div>
+  </section>
+
+  <section class="view" id="v-write">
+    <div class="tawrap" id="tawrap">
+      <textarea id="txt" maxlength="500" data-ph="writePh" data-aria="writeLead"></textarea>
+      <span class="inhint" data-i="writeHint"></span>
+      <span class="incnt" id="cnt"></span>
+    </div>
+    <input type="text" id="nick" maxlength="20" autocomplete="off" data-ph="nickPh" data-aria="nickPh">
+    <button class="btn" id="send"><span class="ic" id="sendIc"></span><span id="sendLbl" data-i="sendBtn"></span></button>
+    <div class="msg" id="wmsg" role="status"></div>
+  </section>
+
+  <section class="view" id="v-me">
+    <div class="me-hero" id="mysum"></div>
+    <div class="me-sec">
+      <div class="me-head">
+        <h2 data-i="headMine"></h2>
+        <span class="me-count" id="mineCount"></span>
+      </div>
+      <div id="mine"></div>
+    </div>
+    <div class="me-sec">
+      <div class="me-head">
+        <h2 data-i="headSaved"></h2>
+        <span class="me-count" id="savedCount"></span>
+      </div>
+      <div id="saved"></div>
+    </div>
+  </section>
+</div>
+
+
+<dialog id="onboardDlg">
+  <div class="ob-in">
+    <div class="ob-logo" aria-hidden="true">
+      <svg viewBox="0 0 26 32"><path d="M13 1C13 1 2 14 2 21a11 11 0 0 0 22 0C24 14 13 1 13 1z" fill="currentColor"/></svg>
+    </div>
+    <h2 data-i="obTitle"></h2>
+    <p class="ob-lead" data-i="obLead"></p>
+    <div class="ob-steps">
+      <div class="ob-step"><span class="ob-num">1</span><div><strong data-i="ob1t"></strong><span data-i="ob1d"></span></div></div>
+      <div class="ob-step"><span class="ob-num">2</span><div><strong data-i="ob2t"></strong><span data-i="ob2d"></span></div></div>
+      <div class="ob-step"><span class="ob-num">3</span><div><strong data-i="ob3t"></strong><span data-i="ob3d"></span></div></div>
+    </div>
+    <button type="button" class="btn" id="obGo" data-i="obGo"></button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<nav data-aria="navAria">
+  <div class="inner">
+    <button data-v="home" aria-current="page">
+      <span class="pill"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M22 6l-10 7L2 6"/></svg></span></span>
+      <span data-i="navHome"></span>
+    </button>
+    <button data-v="write">
+      <span class="pill"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span></span>
+      <span data-i="navWrite"></span>
+    </button>
+    <button data-v="me">
+      <span class="pill"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span></span>
+      <span data-i="navMe"></span>
+    </button>
+  </div>
+</nav>
+
+<dialog id="shareDlg">
+  <div class="dlgin">
+    <div class="shHead">
+      <strong data-i="shTitle"></strong>
+      <button class="x" id="shareClose" data-aria="close"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></span></button>
+    </div>
+    <img id="shareImg" data-alt="shareAlt" alt="">
+    <div class="ctrls">
+      <button type="button" class="ctrl" id="ctrlTheme" aria-expanded="false" aria-controls="panTheme"><span class="cdot th" id="cdTheme"></span><span class="ctext"><small data-i="ctlTheme"></small><b id="cvTheme"></b></span></button>
+      <button type="button" class="ctrl" id="ctrlFont" aria-expanded="false" aria-controls="panFont"><span class="cdot" id="cdFont">Aa</span><span class="ctext"><small data-i="ctlFont"></small><b id="cvFont"></b></span></button>
+      <button type="button" class="ctrl" id="ctrlSize" aria-expanded="false" aria-controls="panSize"><span class="cdot" id="cdSize"></span><span class="ctext"><small data-i="ctlRatio"></small><b id="cvSize"></b></span></button>
+      <button type="button" class="ctrl" id="ctrlShuffle"><span class="cdot" id="cdShuf"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/></svg></span><span class="ctext"><small data-i="shuffleSub"></small><b data-i="shuffle"></b></span></button>
+    </div>
+    <div class="pan" id="panTheme"><div><div class="tog"><button type="button" class="qt" id="autoToggle" aria-pressed="true"><span data-i="autoTheme"></span></button></div><div class="cats" id="themeCats"></div><fieldset class="swatches" id="shStyle" data-aria="shStyleAria"></fieldset></div></div>
+    <div class="pan" id="panFont"><div><div class="stepper fsz"><button type="button" class="stb" id="szDown" data-aria="szSmaller">A−</button><button type="button" class="szv" id="szVal" data-aria="szAuto" hidden>↺</button><button type="button" class="stb" id="szUp" data-aria="szLarger">A+</button></div><div class="cats" id="fontCats"></div><fieldset class="fonts" id="shFont" data-aria="ctlFont"></fieldset></div></div>
+    <div class="pan" id="panSize"><div><fieldset class="chips" id="shFmt" data-aria="shFmtAria"></fieldset></div></div>
+    <p style="margin:14px 0 0;font-size:14px;color:var(--muted);text-align:center" data-i="shareHint"></p>
+    <div class="msg" id="shMsg" role="status" style="margin-top:8px;min-height:24px;text-align:center"></div>
+    <div class="dlgbtns two sticky">
+      <button class="btn ghost" id="shareSave"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></span><span data-i="saveImg"></span></button>
+      <button class="btn" id="shareGo"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg></span><span data-i="shareBtn"></span></button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="platDlg">
+  <div class="dlgin">
+    <div class="shHead">
+      <strong data-i="platTitle"></strong>
+      <button class="x" id="platClose" data-aria="close"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></span></button>
+    </div>
+    <div class="plats" id="plats"></div>
+    <div class="msg" id="platMsg" role="status" style="text-align:center;min-height:24px;margin-top:10px"></div>
+  </div>
+</dialog>
+
+<dialog id="askDlg">
+  <div class="dlgin">
+    <p id="askMsg"></p>
+    <div class="dlgbtns">
+      <button class="btn small ghost" id="askNo" data-i="cancel"></button>
+      <button class="btn small" id="askYes"></button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="reportDlg">
+  <div class="dlgin">
+    <p data-i="reportTitle"></p>
+    <fieldset class="chips" id="rpReasons"></fieldset>
+    <div class="dlgbtns">
+      <button class="btn small ghost" id="rpNo" data-i="cancel"></button>
+      <button class="btn small" id="rpYes" data-i="reportYes"></button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+// ================= i18n =================
+const pl = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+const I18N = {
+  en: {
+    tagline: "Leave a note. Pick up a stranger's.",
+    bl_link: "Links aren't allowed.",
+    bl_contact: "Contact details aren't allowed.",
+    bl_politics: 'No politics here, please.',
+    bl_monarchy: "We don't discuss the monarchy here.",
+    bl_adult: 'No adult content.',
+    bl_promo: 'No ads, selling or gambling.',
+    bl_abuse: 'No threats or harassment.',
+    bl_drugs: 'No drug content.',
+    reportTitle: 'Why report this note?', reportYes: 'Report',
+    rr_spam: 'Spam or ads', rr_adult: 'Adult content', rr_politics: 'Politics or royalty',
+    rr_abuse: 'Bullying or personal info', rr_worry: 'Concerning', rr_other: 'Other',
+    navHome: 'Pick up', navWrite: 'Write', navMe: 'Mine', navAria: 'Main menu',
+    emptyHome: 'Who left something today?',
+    randBtn: 'Pick a note', randAgain: 'Pick another',
+    writeLead: 'Your note', writePh: 'Say something to a stranger...', writeHint: 'This note stays for 7 days',
+    nickPh: 'Nickname (optional)',
+    sendBtn: 'Leave note', sentBtn: 'Left!',
+    headMine: 'My notes', headSaved: 'Saved',
+    anon: 'Anonymous',
+    justNow: 'Just now', minAgo: n => n + ' min ago', hrAgo: n => n + ' h ago', dayAgo: n => pl(n, 'day', 'days') + ' ago',
+    leftSoon: 'Under 1 day left', leftDays: n => pl(n, 'day', 'days') + ' left',
+    likeAria: 'Like', replyAria: 'Replies', saveAria: 'Save', unsaveAria: 'Unsave', shareAria: 'Share', reportAria: 'Report', delAria: 'Delete', viewsAria: 'Views',
+    noReplies: 'No replies yet', replyPh: 'Reply...', send: 'Send', del: 'Delete',
+    emptyReply: 'Type something first.', waitReply: n => 'Wait ' + n + 's.',
+    repliesFull: 'Replies are full.', replyFail: "Couldn't send. Try again.",
+    reported: 'Reported. Thanks!', deleted: 'Deleted',
+    deleteConfirm: 'Delete this note?', deleteYes: 'Delete',
+    savedSr: 'Saved', unsavedSr: 'Removed', pickedSr: x => 'Picked a note: ' + x,
+    stat: n => pl(n, 'note', 'notes') + ' waiting',
+    mySumEmpty: 'No notes yet',
+    savedHint: 'Tap the bookmark on a note to keep it here.',
+    noNotes: 'No notes yet. Write the first one!',
+    loadFail: "Couldn't load notes. Try again.",
+    typeFirst: 'Type something first.',
+    waitPost: n => 'Wait ' + n + 's before the next note.',
+    dup: 'Someone already left this one.',
+    postFail: () => "Couldn't leave it. Try again.",
+    localOnly: () => 'Saved on this device only.',
+    posted: 'Note left!',
+    demo: 'Demo mode. Notes stay on this device.',
+    errPrefix: 'Something went wrong. Please try again.',
+    shTitle: 'Share', shStyleAria: 'Theme', shFmtAria: 'Ratio',
+    fmt_portrait: 'Post 4:5', fmt_story: 'Story 9:16', fmt_square: 'Square 1:1',
+    shareHint: 'Choose "Save Image" to keep it in Photos.', shareAlt: 'Note card',
+    saveImg: 'Save', shareBtn: 'Share', close: 'Close', cancel: 'Cancel', ok: 'OK',
+    copied: 'Image copied.', saveSent: 'Saved.', shareFail: "Couldn't save. Long-press the image.",
+    platTitle: 'Share to', plat_instagram: 'Instagram', plat_tiktok: 'TikTok', plat_facebook: 'Facebook', plat_line: 'LINE', plat_x: 'X',
+    plat_more: 'More apps', plat_copy: 'Copy image',
+    platOpening: a => 'Image copied. Opening ' + a + ', paste it there.',
+    platNoCopy: a => 'Downloaded. Opening ' + a + '.',
+    ctlTheme: 'Theme', ctlFont: 'Font', ctlText: 'Text', ctlRatio: 'Format', suggested: 'suggested', autoTheme: 'Match theme to note', favAdded: 'Saved to favorites', favRemoved: 'Removed from favorites', favHint: 'Press and hold a theme to keep it here.', shuffle: 'Surprise me', shuffleSub: 'Theme + font',
+    quoteOn: 'Quote', szAuto: 'Auto', szSmaller: 'Smaller', szLarger: 'Larger',
+    gone: 'This note was removed.', delFail: "Couldn't delete. Try again.",
+    themeLight: 'Light mode', themeDark: 'Dark mode',
+    swipeHint: 'Swipe for another note',
+    obTitle: 'Welcome to Dropnote',
+    obLead: 'Leave a note for a stranger. Pick up one left for you.',
+    ob1t: 'Write', ob1d: 'Say something kind, funny, or true — no account needed.',
+    ob2t: 'Pick up', ob2d: 'Tap the button or swipe the card to find a note.',
+    ob3t: 'Share', ob3d: 'Save favorites and share a beautiful card image.',
+    obGo: 'Start exploring'
+  },
+  th: {
+    tagline: 'วางโน้ต หยิบโน้ตของคนแปลกหน้า',
+    bl_link: 'ไม่อนุญาตให้ใส่ลิงก์',
+    bl_contact: 'ไม่อนุญาตให้ใส่ข้อมูลติดต่อ',
+    bl_politics: 'ที่นี่งดเรื่องการเมืองนะ',
+    bl_monarchy: 'ที่นี่ไม่พูดถึงสถาบันพระมหากษัตริย์นะ',
+    bl_adult: 'ไม่อนุญาตเนื้อหาผู้ใหญ่',
+    bl_promo: 'ไม่อนุญาตโฆษณา ขายของ หรือพนัน',
+    bl_abuse: 'ไม่อนุญาตการข่มขู่หรือคุกคาม',
+    bl_drugs: 'ไม่อนุญาตเนื้อหายาเสพติด',
+    reportTitle: 'รายงานโน้ตนี้เพราะอะไร?', reportYes: 'รายงาน',
+    rr_spam: 'สแปม / โฆษณา', rr_adult: 'เนื้อหาผู้ใหญ่', rr_politics: 'การเมือง / สถาบัน',
+    rr_abuse: 'รังแก / ข้อมูลส่วนตัว', rr_worry: 'น่าเป็นห่วง', rr_other: 'อื่นๆ',
+    navHome: 'หยิบโน้ต', navWrite: 'วางโน้ต', navMe: 'ของฉัน', navAria: 'เมนูหลัก',
+    emptyHome: 'วันนี้ใครฝากอะไรไว้นะ?',
+    randBtn: 'หยิบโน้ต', randAgain: 'หยิบอีกใบ',
+    writeLead: 'โน้ตของคุณ', writePh: 'พิมพ์ถึงใครสักคน...', writeHint: 'ข้อความนี้จะอยู่ได้ 7 วัน',
+    nickPh: 'ชื่อเล่น (ไม่ใส่ก็ได้)',
+    sendBtn: 'วางโน้ต', sentBtn: 'วางแล้ว!',
+    headMine: 'โน้ตของฉัน', headSaved: 'ที่เก็บไว้',
+    anon: 'ไม่ระบุชื่อ',
+    justNow: 'เมื่อสักครู่', minAgo: n => n + ' นาทีที่แล้ว', hrAgo: n => n + ' ชั่วโมงที่แล้ว', dayAgo: n => n + ' วันที่แล้ว',
+    leftSoon: 'เหลือไม่ถึง 1 วัน', leftDays: n => 'เหลือ ' + n + ' วัน',
+    likeAria: 'ถูกใจ', replyAria: 'ตอบกลับ', saveAria: 'เก็บไว้', unsaveAria: 'เลิกเก็บ', shareAria: 'แชร์', reportAria: 'รายงาน', delAria: 'ลบ', viewsAria: 'คนเปิดอ่าน',
+    noReplies: 'ยังไม่มีคำตอบ', replyPh: 'ตอบกลับ...', send: 'ส่ง', del: 'ลบ',
+    emptyReply: 'พิมพ์ก่อนนะ', waitReply: n => 'รอ ' + n + ' วินาที',
+    repliesFull: 'คำตอบเต็มแล้ว', replyFail: 'ส่งไม่สำเร็จ ลองใหม่นะ',
+    reported: 'รายงานแล้ว ขอบคุณนะ', deleted: 'ลบแล้ว',
+    deleteConfirm: 'ลบโน้ตนี้ใช่ไหม?', deleteYes: 'ลบ',
+    savedSr: 'เก็บแล้ว', unsavedSr: 'เลิกเก็บแล้ว', pickedSr: x => 'หยิบโน้ตแล้ว: ' + x,
+    stat: n => 'มีโน้ตรอ ' + n + ' ใบ',
+    mySumEmpty: 'ยังไม่มีโน้ต',
+    savedHint: 'กดไอคอนคั่นหนังสือบนโน้ตเพื่อเก็บไว้ที่นี่',
+    noNotes: 'ยังไม่มีโน้ต วางใบแรกเลย!',
+    loadFail: 'โหลดโน้ตไม่สำเร็จ ลองใหม่นะ',
+    typeFirst: 'พิมพ์ก่อนนะ',
+    waitPost: n => 'รอ ' + n + ' วินาทีก่อนวางใบต่อไป',
+    dup: 'มีคนวางโน้ตนี้แล้ว',
+    postFail: () => 'วางไม่สำเร็จ ลองใหม่นะ',
+    localOnly: () => 'บันทึกในเครื่องนี้เท่านั้น',
+    posted: 'วางโน้ตแล้ว',
+    demo: 'โหมดทดลอง โน้ตอยู่ในเครื่องนี้เท่านั้น',
+    errPrefix: 'มีบางอย่างผิดพลาด ลองใหม่อีกครั้งนะ',
+    shTitle: 'แชร์', shStyleAria: 'ธีม', shFmtAria: 'สัดส่วน',
+    fmt_portrait: 'โพสต์ 4:5', fmt_story: 'สตอรี่ 9:16', fmt_square: 'จัตุรัส 1:1',
+    shareHint: 'เลือก "บันทึกรูปภาพ" เพื่อเก็บลงแกลเลอรี่', shareAlt: 'การ์ดโน้ต',
+    saveImg: 'บันทึก', shareBtn: 'แชร์', close: 'ปิด', cancel: 'ยกเลิก', ok: 'ตกลง',
+    copied: 'คัดลอกรูปแล้ว', saveSent: 'บันทึกแล้ว', shareFail: 'บันทึกไม่ได้ ลองกดค้างที่รูป',
+    platTitle: 'แชร์ไปที่', plat_instagram: 'Instagram', plat_tiktok: 'TikTok', plat_facebook: 'Facebook', plat_line: 'LINE', plat_x: 'X',
+    plat_more: 'แอปอื่นๆ', plat_copy: 'คัดลอกรูป',
+    platOpening: a => 'คัดลอกรูปแล้ว กำลังเปิด ' + a + ' วางรูปได้เลย',
+    platNoCopy: a => 'ดาวน์โหลดแล้ว กำลังเปิด ' + a,
+    ctlTheme: 'ธีม', ctlFont: 'ฟอนต์', ctlText: 'ข้อความ', ctlRatio: 'รูปแบบ', suggested: 'แนะนำ', autoTheme: 'เลือกธีมตามเนื้อหา', favAdded: 'บันทึกเป็นธีมโปรดแล้ว', favRemoved: 'เอาออกจากธีมโปรดแล้ว', favHint: 'กดค้างที่ธีมเพื่อเก็บไว้ตรงนี้', shuffle: 'สุ่มให้', shuffleSub: 'ธีม + ฟอนต์',
+    quoteOn: 'คำพูด', szAuto: 'อัตโนมัติ', szSmaller: 'เล็กลง', szLarger: 'ใหญ่ขึ้น',
+    gone: 'โน้ตนี้ถูกลบแล้ว', delFail: 'ลบไม่สำเร็จ ลองใหม่นะ',
+    themeLight: 'โหมดสว่าง', themeDark: 'โหมดมืด',
+    swipeHint: 'ปัดเพื่อโน้ตใบอื่น',
+    obTitle: 'ยินดีต้อนรับสู่ Dropnote',
+    obLead: 'วางโน้ตให้คนแปลกหน้า แล้วหยิบโน้ตที่ใครสักคนฝากไว้',
+    ob1t: 'วางโน้ต', ob1d: 'พิมพ์อะไรสักอย่าง — ไม่ต้องสมัครสมาชิก',
+    ob2t: 'หยิบโน้ต', ob2d: 'กดปุ่ม หรือปัดการ์ดเพื่อเจอโน้ตใหม่',
+    ob3t: 'แชร์', ob3d: 'เก็บโน้ตโปรด และแชร์เป็นรูปการ์ดสวย ๆ',
+    obGo: 'เริ่มเลย'
+  }
+};
+let lang = (navigator.language || 'en').toLowerCase().startsWith('th') ? 'th' : 'en';
+const t = (k, ...a) => { const v = (I18N[lang] && I18N[lang][k] != null) ? I18N[lang][k] : I18N.en[k]; return typeof v === 'function' ? v(...a) : v; };
+
+// ---------- content filters (disabled) ----------
+// Previously blocked links, contact details, politics, monarchy, adult content, promo, abuse, drugs.
+// All automatic blocking has been removed per request.
+function hasLink(s) { return false; }
+function blockedReason(s) { return ''; }
+const blocked = s => false;
+const blockMsg = k => t('bl_' + k);
+// ---------- error banner ----------
+function showBanner(text, isErr) {
+  const b = document.getElementById('banner');
+  b.textContent = text; b.className = 'banner' + (isErr ? ' err' : ''); b.style.display = 'block';
+}
+let lastBanner = 0;
+function softError(detail) {
+  console.error(detail);
+  const now = Date.now(); if (now - lastBanner < 6000) return; lastBanner = now;
+  showBanner(t('errPrefix'), true); setTimeout(() => { const b = document.getElementById('banner'); if (b.classList.contains('err')) b.style.display = 'none'; }, 5000);
+}
+window.addEventListener('error', e => { if (/ResizeObserver|Script error/i.test(e.message || '')) return; softError(e.message); });
+window.addEventListener('unhandledrejection', e => softError((e.reason && e.reason.message) || e.reason));
+
+// ---------- storage ----------
+// 1) inside Claude's preview: window.storage   2) published page: shared notes in the `db` capability, personal data in localStorage
+// 3) anything else: this device only
+const store = (() => {
+  const hasWS = !!(window.storage && typeof window.storage.get === 'function');
+  const mem = new Map();
+  const mk = (k, s) => (s ? 's:' : 'p:') + k;
+  const lsGet = k => { try { return localStorage.getItem('dn:' + k); } catch { return mem.has(mk(k, false)) ? mem.get(mk(k, false)) : null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem('dn:' + k, v); } catch { mem.set(mk(k, false), v); } return true; };
+  const lsDel = k => { try { localStorage.removeItem('dn:' + k); } catch {} mem.delete(mk(k, false)); return true; };
+  let db = null, cache = { at: 0, map: new Map() };
+  const docId = k => String(k).replace(/^msg:/, '');
+  const self = {
+    ok: hasWS, mode: hasWS ? 'ws' : 'mem', done: hasWS, lastError: '', listFailed: false,
+    ready: Promise.resolve(),
+    async get(k, s) {
+      if (self.mode === 'ws') { try { const r = await window.storage.get(k, s); return r ? r.value : null; } catch { return null; } }
+      if (!s) return lsGet(k);
+      if (self.mode === 'db') {
+        if (Date.now() - cache.at < 8000 && cache.map.has(k)) return cache.map.get(k);
+        try { const d = await db.collection('notes').doc(docId(k)).get(); return d.exists ? (d.data() || {}).v || null : null; } catch { return null; }
+      }
+      return mem.has(mk(k, s)) ? mem.get(mk(k, s)) : null;
+    },
+    async set(k, v, s) {
+      if (!s && self.mode !== 'ws') return lsSet(k, v);
+      if (self.mode === 'mem') { mem.set(mk(k, s), v); return true; }
+      for (let i = 0; i < 2; i++) {
+        try {
+          if (self.mode === 'ws') { const r = await window.storage.set(k, v, s); if (r) return true; self.lastError = 'storage.set returned empty (shared=' + s + ')'; }
+          else { await db.collection('notes').doc(docId(k)).set({ v }); cache.map.set(k, v); return true; }
+        } catch (e) { console.error(e); self.lastError = String((e && (e.code || e.message)) || e); if (e && e.code === 'invalid_argument') return false; }
+        if (i === 0) await new Promise(r => setTimeout(r, 450));   // transient server errors: try once more
+      }
+      return false;
+    },
+    async del(k, s) {
+      if (!s && self.mode !== 'ws') return lsDel(k);
+      if (self.mode === 'mem') { mem.delete(mk(k, s)); return true; }
+      try {
+        if (self.mode === 'ws') await window.storage.delete(k, s);
+        else { await db.collection('notes').doc(docId(k)).delete(); cache.map.delete(k); }
+        return true;
+      } catch { return false; }
+    },
+    async list(prefix, s) {
+      if (!s && self.mode !== 'ws') return [...mem.keys()].filter(k => k.startsWith(mk(prefix, s))).map(k => k.slice(2));
+      if (self.mode === 'mem') return [...mem.keys()].filter(k => k.startsWith(mk(prefix, s))).map(k => k.slice(2));
+      try {
+        if (self.mode === 'ws') { const r = await window.storage.list(prefix, s); self.listFailed = false; return r ? r.keys : []; }
+        const snap = await db.collection('notes').get(), map = new Map();
+        snap.docs.forEach(d => { const v = (d.data() || {}).v; if (v) map.set('msg:' + d.id, v); });
+        cache = { at: Date.now(), map }; self.listFailed = false;
+        return [...map.keys()];
+      } catch { self.listFailed = true; return []; }
+    }
+  };
+  if (!hasWS) {
+    self.ready = (async () => {
+      try {
+        if (window.claude && typeof window.claude.use === 'function') db = await Promise.race([window.claude.use('db'), new Promise(r => setTimeout(() => r(null), 6000))]);
+      } catch { db = null; }
+      if (db) { self.mode = 'db'; self.ok = true; }
+      self.done = true;
+    })();
+  }
+  return self;
+})();
+
+
+
+// ---------- constants ----------
+const DAY = 86400000;
+const NOTE_LIFE = 7 * DAY;            // every note disappears after 7 days
+const MAX_NOTES = 200, MAX_SAVED = 50; // storage caps: oldest notes beyond the cap are removed
+const HIDE_AT = 3;
+const POST_COOLDOWN = 20000, REPLY_COOLDOWN = 8000, MAX_REPLIES = 20;
+const REPORT_REASONS = ['spam', 'adult', 'politics', 'abuse', 'worry', 'other'];
+
+// ---------- icons (one consistent line set) ----------
+const ICON = {
+  heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
+  comment: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
+  bookmark: '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+  share: '<path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/>',
+  flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/>',
+  eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  send: '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>',
+  check: '<path d="M20 6L9 17l-5-5"/>',
+  trash: '<path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>'
+};
+function icon(name) {
+  const s = document.createElement('span'); s.className = 'ic';
+  s.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + ICON[name] + '</svg>';
+  return s;
+}
+function actBtn(name, label, count, cls, onclick) {
+  const b = el('button', 'act ' + cls); b.type = 'button';
+  b.setAttribute('aria-label', label); b.title = label;
+  b.append(icon(name));
+  if (cls === 'talk') b.append(el('span', 'cnt', count ? String(count) : ''));
+  b.onclick = onclick; return b;
+}
+
+function restart(e, cls) { e.classList.remove(cls); void e.offsetWidth; e.classList.add(cls); }
+// like / save update the buttons in place (no re-render), so nothing jumps or flickers
+function syncHeart(m, liked) {
+  if (!noteRefs) return;
+  const b = noteRefs.heart;
+  b.setAttribute('aria-pressed', !!liked);
+  if (liked) restart(b, 'pop'); else b.classList.remove('pop');
+}
+function syncMark(id) {
+  if (!noteRefs || !current || current.id !== id) return;
+  const on = me.saved.includes(id), b = noteRefs.mark, lbl = on ? t('unsaveAria') : t('saveAria');
+  b.setAttribute('aria-pressed', on); b.setAttribute('aria-label', lbl); b.title = lbl;
+  if (on) restart(b, 'snap'); else b.classList.remove('snap');
+}
+
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+let toastTimer = 0;
+function toast(text, ms) {
+  const o = $('toast'); o.textContent = text; o.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => o.classList.remove('show'), ms || 1800);
+}
+function haptic(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 8); } catch {} }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+// lock page scroll while a dialog is open; keep the nav out of the way while typing
+const _showModal = HTMLDialogElement.prototype.showModal;
+HTMLDialogElement.prototype.showModal = function () { document.documentElement.classList.add('lock'); return _showModal.call(this); };
+document.addEventListener('close', () => { if (!document.querySelector('dialog[open]')) document.documentElement.classList.remove('lock'); }, true);
+document.addEventListener('focusin', e => { if (e.target.matches && e.target.matches('input[type=text],textarea')) document.body.classList.add('typing'); });
+document.addEventListener('focusout', () => { setTimeout(() => { const a = document.activeElement; if (!(a && a.matches && a.matches('input[type=text],textarea'))) document.body.classList.remove('typing'); }, 60); });
+
+function ago(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return t('justNow');
+  if (s < 3600) return t('minAgo', Math.floor(s / 60));
+  if (s < 86400) return t('hrAgo', Math.floor(s / 3600));
+  return t('dayAgo', Math.floor(s / 86400));
+}
+function leftText(ts) {
+  const ms = ts + NOTE_LIFE - Date.now();
+  if (ms < DAY) return t('leftSoon');
+  return t('leftDays', Math.ceil(ms / DAY));
+}
+const total = m => Object.values(m.rx || {}).reduce((a, b) => a + b, 0);
+function norm(m) {
+  if (!m.rx) m.rx = m.likes ? { heart: m.likes } : {};
+  ['likes', 'color', 'ct', 'cat', 'openAt', 'expiresAt'].forEach(k => { delete m[k]; });
+  m.replies = m.replies || [];
+  m.views = m.views || 0; m.reports = m.reports || 0; m.rr = m.rr || {};
+  return m;
+}
+function say(text) { $('sr').textContent = ''; setTimeout(() => { $('sr').textContent = text; }, 50); }
+
+function ask(msg, yes) {
+  return new Promise(res => {
+    const d = $('askDlg');
+    $('askMsg').textContent = msg; $('askYes').textContent = yes || t('ok');
+    const done = v => { res(v); if (d.open) d.close(); };
+    $('askYes').onclick = () => done(true);
+    $('askNo').onclick = () => done(false);
+    d.onclose = () => res(false);
+    d.showModal();
+  });
+}
+
+// ---------- state ----------
+let me = { id: 'u' + Math.random().toString(36).slice(2, 10), name: '', rx: {}, saved: [], snap: {}, reported: [], lastPost: 0, lastReply: 0, lang: null };
+let msgs = [], loadedAt = 0;
+let lastShownId = null, current = null, picked = false, emptyKey = 'emptyHome', picking = false, sending = false;
+let repliesOpen = false, replyDraft = '', noteRefs = null;
+const seenViews = new Set(), shown = new Set();
+
+const isLive = m => (m.reports || 0) < HIDE_AT && (Date.now() - m.ts) < NOTE_LIFE && !blocked(m.text) && !blocked(m.name);
+const visible = () => msgs.filter(isLive);
+let meTimer = 0, meDirty = false;
+async function flushMe() { clearTimeout(meTimer); if (!meDirty) return; meDirty = false; try { await store.set('me', JSON.stringify(me), false); } catch {} }
+function saveMe() { meDirty = true; clearTimeout(meTimer); meTimer = setTimeout(flushMe, 400); return Promise.resolve(); }
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushMe(); });
+window.addEventListener('pagehide', flushMe);
+function pruneMe() {
+  const cut = Date.now() - NOTE_LIFE - DAY, old = id => { const ts = parseInt(String(id).slice(0, 8), 36) || 0; return ts && ts < cut; };
+  Object.keys(me.rx).forEach(id => { if (old(id)) delete me.rx[id]; });
+  me.reported = me.reported.filter(id => !old(id)).slice(-200);
+}
+// a note disappeared (author deleted it): clear it everywhere it can still show up
+function noteGone(id) {
+  msgs = msgs.filter(m => m.id !== id);
+  if (me.saved.includes(id)) { me.saved = me.saved.filter(x => x !== id); delete me.snap[id]; saveMe(); }
+  if (current && current.id === id) { current = null; setEmpty('emptyHome'); toast(t('gone')); }
+  const v = (document.querySelector('.view.on') || {}).id;
+  if (v === 'v-me') renderMe(); else if (v === 'v-home') renderHome();
+}
+async function checkGone(id) {
+  const keys = await store.list('msg:', true);
+  if (!store.listFailed && !keys.includes('msg:' + id)) noteGone(id);
+}
+
+// Note keys look like "msg:" + base36 timestamp (8 chars) + random, so age is known without reading the note.
+const keyTs = k => parseInt(String(k).slice(4, 12), 36) || 0;
+async function loadAll(force) {
+  if (!force && Date.now() - loadedAt < 15000) return;
+  const all = (await store.list('msg:', true)).sort().reverse();
+  if (store.listFailed && msgs.length) return;   // keep what we have instead of wiping the list
+  const cutoff = Date.now() - NOTE_LIFE;
+  const keep = [], drop = [];
+  all.forEach((k, i) => { const ts = keyTs(k); ((ts && ts < cutoff) || i >= MAX_NOTES ? drop : keep).push(k); });
+  drop.slice(0, 40).forEach(k => { store.del(k, true).catch(() => {}); });   // auto clean-up keeps storage small
+  const rows = await Promise.all(keep.map(async k => {
+    const v = await store.get(k, true);
+    try { return v ? norm(JSON.parse(v)) : null; } catch { return null; }
+  }));
+  msgs = rows.filter(m => {
+    if (!m) return false;
+    if (Date.now() - m.ts >= NOTE_LIFE) { store.del('msg:' + m.id, true).catch(() => {}); return false; }
+    return true;
+  });
+  if (!store.listFailed) {
+    const keepSet = new Set(keep); let changed = false;
+    me.saved = me.saved.filter(id => {
+      const live = keepSet.has('msg:' + id), s = me.snap[id];
+      const ghost = !live && (!s || !s.text);
+      const deleted = !live && s && s.ts && (Date.now() - s.ts) < NOTE_LIFE;   // not expired, so the author removed it
+      if (ghost || deleted) { delete me.snap[id]; changed = true; return false; }
+      return true;
+    });
+    if (changed) saveMe();
+    if (current && !keepSet.has('msg:' + current.id)) noteGone(current.id);
+  }
+  loadedAt = Date.now();
+}
+
+// ---------- random pick (no repeats until you've seen everything) ----------
+function pickRandom() {
+  let pool = visible();
+  const others = pool.filter(m => m.authorId !== me.id);
+  if (others.length) pool = others;
+  if (pool.length > 1) pool = pool.filter(m => m.id !== lastShownId);
+  let fresh = pool.filter(m => !shown.has(m.id));
+  if (!fresh.length) { shown.clear(); fresh = pool; }
+  if (!fresh.length) return null;
+  const w = fresh.map(m => (Date.now() - m.ts) < 2 * DAY ? 3 : 1);   // new notes get found a bit more often
+  let r = Math.random() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < fresh.length; i++) { r -= w[i]; if (r <= 0) return fresh[i]; }
+  return fresh[fresh.length - 1];
+}
+
+// ---------- actions ----------
+async function mutate(id, fn) {
+  const raw = await store.get('msg:' + id, true);
+  if (!raw) return null;
+  let m; try { m = norm(JSON.parse(raw)); } catch { return null; }
+  if (fn(m) === false) return m;
+  await store.set('msg:' + id, JSON.stringify(m), true);
+  const i = msgs.findIndex(x => x.id === id);
+  if (i >= 0) msgs[i] = m;
+  return m;
+}
+function refresh(m) { if (current && current.id === m.id) renderNote(m, false); }
+
+function applyRx(x, cur, next) {
+  x.rx = x.rx || {};
+  if (cur) x.rx[cur.t] = Math.max(0, (x.rx[cur.t] || 0) - 1);
+  if (next) x.rx[next.t] = (x.rx[next.t] || 0) + 1;
+}
+let rxChain = Promise.resolve();
+function react(id) {
+  const cur = me.rx[id], next = cur ? null : { t: 'heart' };
+  // update the screen first so the heart feels instant, then save in the background
+  const local = (current && current.id === id) ? current : msgs.find(x => x.id === id);
+  if (local) applyRx(local, cur, next);
+  if (next) me.rx[id] = next; else delete me.rx[id];
+  if (current && current.id === id) syncHeart(current, !!next);
+  if (next) haptic(8);
+  rxChain = rxChain.then(async () => { const r = await mutate(id, x => applyRx(x, cur, next)); if (!r) await checkGone(id); await saveMe(); }).catch(() => {});
+}
+
+async function toggleSave(m) {
+  if (!m || !m.id) return;
+  if (!me.saved.includes(m.id) && !m.text) return;   // never create an empty saved entry
+  if (me.saved.includes(m.id)) {
+    me.saved = me.saved.filter(x => x !== m.id); delete me.snap[m.id];
+  } else {
+    me.saved = [m.id, ...me.saved].slice(0, MAX_SAVED);
+    me.snap[m.id] = { text: m.text, name: m.name || '', ts: m.ts };   // keep a copy so it stays after the note expires
+    Object.keys(me.snap).forEach(k => { if (!me.saved.includes(k)) delete me.snap[k]; });
+  }
+  syncMark(m.id);
+  await saveMe();
+  const on = me.saved.includes(m.id);
+  say(on ? t('savedSr') : t('unsavedSr')); toast(on ? t('savedSr') : t('unsavedSr'), 1400); haptic(6);
+}
+
+async function unsave(id) {
+  if (!me.saved.includes(id)) return;
+  me.saved = me.saved.filter(x => x !== id); delete me.snap[id];
+  syncMark(id); renderMe(); toast(t('unsavedSr'), 1400); haptic(6);
+  await saveMe();
+}
+
+function askReason() {
+  return new Promise(res => {
+    const d = $('reportDlg'), box = $('rpReasons'); box.textContent = '';
+    REPORT_REASONS.forEach((id, i) => radioChip(box, 'rr', id, t('rr_' + id), i === 0));
+    let settled = false;
+    const done = v => { if (settled) return; settled = true; res(v); if (d.open) d.close(); };
+    $('rpYes').onclick = () => done(checked('rr') || 'other');
+    $('rpNo').onclick = () => done(null);
+    d.onclose = () => done(null);
+    d.showModal();
+  });
+}
+async function report(id) {
+  if (me.reported.includes(id)) return;
+  const why = await askReason();
+  if (!why) return;
+  await mutate(id, x => { x.reports = (x.reports || 0) + 1; x.rr = x.rr || {}; x.rr[why] = (x.rr[why] || 0) + 1; });
+  me.reported.push(id); await saveMe();
+  current = null; setEmpty('emptyHome'); toast(t('reported'));
+}
+
+async function removeMine(id) {
+  if (!await ask(t('deleteConfirm'), t('deleteYes'))) return;
+  const ok = await store.del('msg:' + id, true);
+  if (!ok) { toast(t('delFail')); return; }
+  msgs = msgs.filter(m => m.id !== id);
+  if (me.saved.includes(id)) { me.saved = me.saved.filter(x => x !== id); delete me.snap[id]; saveMe(); }
+  if (current && current.id === id) { current = null; setEmpty('emptyHome'); }
+  renderMe(); renderHome(); toast(t('deleted'), 1400);
+}
+
+function countView(m) {
+  if (m.authorId === me.id || seenViews.has(m.id)) return;
+  seenViews.add(m.id);
+  m.views = (m.views || 0) + 1;
+  mutate(m.id, x => { x.views = (x.views || 0) + 1; }).catch(() => {});
+}
+
+async function addReply(id, text) {
+  const r = { id: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), text, name: me.name, authorId: me.id, ts: Date.now() };
+  let full = false;
+  const m = await mutate(id, x => {
+    if (x.replies.length >= MAX_REPLIES) { full = true; return false; }
+    x.replies.push(r);
+  });
+  return { m, full };
+}
+async function removeReply(id, rid) {
+  const m = await mutate(id, x => { x.replies = x.replies.filter(r => !(r.id === rid && r.authorId === me.id)); });
+  if (m) refresh(m);
+}
+
+// ---------- render: note card ----------
+function setEmpty(key) {
+  emptyKey = key; noteRefs = null;
+  const n = $('note'); n.className = 'note empty'; n.textContent = '';
+  n.style.transform = ''; n.style.opacity = ''; n.style.transition = '';
+  n.removeAttribute('data-hint'); n.classList.remove('swipe-hint', 'swiping');
+  const ic = el('span', 'eico'); ic.innerHTML = '<svg viewBox="0 0 26 32" aria-hidden="true"><path d="M13 1C13 1 2 14 2 21a11 11 0 0 0 22 0C24 14 13 1 13 1z"/></svg>';
+  n.append(ic, el('span', null, t(key)));
+  n.setAttribute('role', 'button'); n.tabIndex = 0;
+}
+function renderNote(m, animate) {
+  current = m;
+  const n = $('note');
+  n.style.transform = ''; n.style.opacity = ''; n.style.transition = '';
+  n.className = 'note' + (animate ? ' drop' : '');
+  n.removeAttribute('role'); n.removeAttribute('tabindex');
+  n.textContent = '';
+  if (!me.seenSwipeHint) {
+    n.classList.add('swipe-hint');
+    n.setAttribute('data-hint', t('swipeHint'));
+    setTimeout(() => { n.classList.remove('swipe-hint'); n.removeAttribute('data-hint'); me.seenSwipeHint = true; saveMe(); }, 3200);
+  }
+  n.append(el('p', 'text', m.text));
+  n.append(el('div', 'meta', (m.name || t('anon')) + ' · ' + ago(m.ts)));
+
+  const shownReplies = m.replies.filter(r => !blocked(r.text) && !blocked(r.name));
+  const saved = me.saved.includes(m.id);
+  const bar = el('div', 'bar'); bar.setAttribute('role', 'group');
+
+  const heart = actBtn('heart', t('likeAria'), total(m), 'heart', () => react(m.id));
+  heart.setAttribute('aria-pressed', !!me.rx[m.id]);
+
+  const talk = actBtn('comment', t('replyAria'), shownReplies.length, 'talk', () => { repliesOpen = !repliesOpen; renderNote(m, false); });
+  talk.setAttribute('aria-expanded', repliesOpen);
+
+  const sh = actBtn('share', t('shareAria'), 0, 'share', () => openShare(m));
+  const mk = actBtn('bookmark', saved ? t('unsaveAria') : t('saveAria'), 0, 'mark', () => toggleSave(m));
+  mk.setAttribute('aria-pressed', saved);
+  bar.append(heart, talk, sh, mk);
+  noteRefs = { heart, mark: mk };
+  bar.append(m.authorId !== me.id
+    ? actBtn('flag', t('reportAria'), 0, 'danger', () => report(m.id))
+    : actBtn('trash', t('delAria'), 0, 'danger', () => removeMine(m.id)));
+  n.append(bar);
+
+  if (repliesOpen) {
+    const box = el('div', 'replies');
+    if (!shownReplies.length) box.append(el('p', 'hint', t('noReplies')));
+    shownReplies.forEach(r => {
+      const d = el('div', 'reply');
+      const top = el('div', 'rm', (r.name || t('anon')) + ' · ' + ago(r.ts));
+      if (r.authorId === me.id) {
+        const x = el('button', 'link', t('del')); x.onclick = () => removeReply(m.id, r.id); top.append(' ', x);
+      }
+      d.append(top, el('p', null, r.text)); box.append(d);
+    });
+    const f = el('div', 'replyform');
+    const inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = 100; inp.value = replyDraft;
+    inp.placeholder = t('replyPh'); inp.setAttribute('aria-label', t('replyAria'));
+    inp.oninput = () => { replyDraft = inp.value; };
+    inp.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); go.click(); } };
+    const go = el('button', 'btn small', t('send'));
+    const status = el('div', 'msg'); status.setAttribute('role', 'status');
+    go.onclick = async () => {
+      if (go.disabled) return;
+      const text = inp.value.trim();
+      if (!text) { status.className = 'msg err'; status.textContent = t('emptyReply'); return; }
+      const why = blockedReason(text) || blockedReason(me.name);
+      if (why) { status.className = 'msg err'; status.textContent = blockMsg(why); return; }
+      const wait = REPLY_COOLDOWN - (Date.now() - me.lastReply);
+      if (wait > 0) { status.className = 'msg err'; status.textContent = t('waitReply', Math.ceil(wait / 1000)); return; }
+      go.disabled = true;
+      const r = await addReply(m.id, text);
+      go.disabled = false;
+      if (r.full) { status.className = 'msg err'; status.textContent = t('repliesFull'); return; }
+      if (!r.m) { status.className = 'msg err'; status.textContent = t('replyFail'); return; }
+      me.lastReply = Date.now(); await saveMe();
+      replyDraft = ''; refresh(r.m);
+    };
+    f.append(inp, go); box.append(f, status); n.append(box);
+  }
+}
+
+// ---------- render: home / my stuff ----------
+function renderHome() { const n = visible().length; $('stat').textContent = n ? t('stat', n) : ''; }
+
+function metaItem(name, text) { const s = el('span'); s.append(icon(name), el('span', null, String(text))); return s; }
+function listItem(row, o) {
+  const d = el('div', 'item');
+  d.append(el('p', null, row.text));
+  const meta = el('div', 'imeta');
+  if (o.stats) { o.stats.forEach(([n, v, lbl]) => { const s = metaItem(n, v); s.title = lbl || ''; meta.append(s); }); }
+  else if (o.info) meta.append(el('span', null, o.info));
+  d.append(meta);
+  const bar = el('div', 'bar');
+  bar.append(actBtn('share', t('shareAria'), 0, 'share', () => openShare(row)), actBtn(o.icon, o.label, 0, 'danger', o.onRemove));
+  d.append(bar);
+  return d;
+}
+function sumTile(cls, name, n, lbl) {
+  const d = el('div', 'sum ' + cls);
+  d.title = lbl; d.setAttribute('aria-label', lbl + ': ' + n);
+  d.append(icon(name), el('span', null, String(n)), el('span', 'slbl', lbl));
+  return d;
+}
+async function renderMe() {
+  const mine = msgs.filter(m => m.authorId === me.id && (Date.now() - m.ts) < NOTE_LIFE);
+  const rxTotal = mine.reduce((a, m) => a + total(m), 0), views = mine.reduce((a, m) => a + (m.views || 0), 0);
+  const sum = $('mysum'); sum.textContent = '';
+  sum.className = 'me-hero' + (mine.length ? ' on' : '');
+  if (mine.length) sum.append(sumTile('h', 'heart', rxTotal, t('likeAria')), sumTile('v', 'eye', views, t('viewsAria')));
+
+  const mc = $('mineCount'); if (mc) mc.textContent = mine.length ? String(mine.length) : '';
+  const box = $('mine'); box.textContent = '';
+  if (!mine.length) {
+    const eb = el('div', 'emptybox'); eb.append(el('p', null, t('mySumEmpty')));
+    const b = el('button', 'btn small', t('navWrite')); b.type = 'button'; b.onclick = () => showView('write'); eb.append(b); box.append(eb);
+  }
+  mine.forEach(m => box.append(listItem(m, {
+    stats: [['heart', total(m), t('likeAria')], ['eye', m.views || 0, t('viewsAria')], ['comment', m.replies.length, t('replyAria')], ['clock', leftText(m.ts), '']],
+    icon: 'trash', label: t('delAria'), onRemove: () => removeMine(m.id)
+  })));
+
+  const rows = me.saved.map(id => {
+    const live = msgs.find(x => x.id === id);
+    const s = live ? { text: live.text, name: live.name, ts: live.ts } : me.snap[id];
+    return s ? { id, text: s.text, name: s.name, ts: s.ts } : null;
+  }).filter(r => r && r.text && !blocked(r.text) && !blocked(r.name));
+  if (rows.length !== me.saved.length) { me.saved = rows.map(r => r.id); saveMe(); }
+  const sc = $('savedCount'); if (sc) sc.textContent = rows.length ? String(rows.length) : '';
+  const sb = $('saved'); sb.textContent = '';
+  if (!rows.length) sb.append(el('p', 'hint', t('savedHint')));
+  rows.forEach(r => sb.append(listItem(r, {
+    info: (r.name || t('anon')) + (r.ts ? ' · ' + ago(r.ts) : ''),
+    icon: 'trash', label: t('delAria'),
+    onRemove: () => unsave(r.id)
+  })));
+}
+
+// ---------- share as image ----------
+const DROP = new Path2D('M13 1C13 1 2 14 2 21a11 11 0 0 0 22 0C24 14 13 1 13 1z');
+const HEART_P = new Path2D('M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z');
+const SEG = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segmenter('th', { granularity: 'word' }) : null;
+
+function wrapLines(ctx, text, maxW) {
+  const src = String(text).replace(/\r\n?/g, '\n');
+  const parts = SEG ? [...SEG.segment(src)].map(s => s.segment) : [...src];
+  const pieces = parts.flatMap(w => (w !== '\n' && ctx.measureText(w).width > maxW) ? [...w] : [w]);
+  const lines = []; let line = '';
+  for (const w of pieces) {
+    if (w === '\n') { lines.push(line.trimEnd()); line = ''; continue; }
+    const tt = line + w;
+    if (ctx.measureText(tt).width > maxW && line.trim()) { lines.push(line.trimEnd()); line = w.trimStart(); } else line = tt;
+  }
+  if (line.trim() || !lines.length) lines.push(line.trimEnd());
+  return lines;
+}
+// same number of lines, but the narrowest width that still fits, so lines come out even (no lonely last word)
+function wrapBalanced(ctx, text, maxW) {
+  const base = wrapLines(ctx, text, maxW);
+  if (base.length < 2 || String(text).includes('\n')) return base;
+  let lo = maxW * 0.4, hi = maxW, best = maxW;
+  for (let i = 0; i < 12; i++) {
+    const mid = (lo + hi) / 2;
+    if (wrapLines(ctx, text, mid).length <= base.length) { best = mid; hi = mid; } else lo = mid;
+  }
+  return wrapLines(ctx, text, best);
+}
+
+// ---- fonts: Thai fonts first; "English" ones style Latin letters and fall back to a Thai font for Thai ----
+const FTAIL = { sans: '"Sarabun","Thonburi",system-ui,sans-serif', serif: '"Thonburi",Georgia,serif', hand: '"Sarabun","Thonburi",cursive,sans-serif' };
+const F = (fam, cat, kind, lh, fb) => ({ name: fam, fam, cat, en: cat === 'en', fbf: fb ? [fb] : [], lh: lh || 1.5,
+  stack: '"' + fam + '",' + (fb ? '"' + fb + '",' : '') + FTAIL[kind || 'sans'] });
+const FONTS = {
+  sarabun: F('Sarabun', 'sans'), prompt: F('Prompt', 'sans'), notosans: F('Noto Sans Thai', 'sans'), plex: F('IBM Plex Sans Thai', 'sans'),
+  anuphan: F('Anuphan', 'sans'), bai: F('Bai Jamjuree', 'sans'), k2d: F('K2D', 'sans'), krub: F('Krub', 'sans'),
+  niramit: F('Niramit', 'sans'), athiti: F('Athiti', 'sans'), thasadith: F('Thasadith', 'sans'),
+  pridi: F('Pridi', 'serif', 'serif'), trirong: F('Trirong', 'serif', 'serif'), maitree: F('Maitree', 'serif', 'serif'),
+  taviraj: F('Taviraj', 'serif', 'serif'), notoserif: F('Noto Serif Thai', 'serif', 'serif'), fahkwang: F('Fahkwang', 'serif', 'serif'),
+  mali: F('Mali', 'hand', 'hand'), itim: F('Itim', 'hand', 'hand'), playpen: F('Playpen Sans Thai', 'hand', 'hand'),
+  koho: F('KoHo', 'hand', 'hand'), kodchasan: F('Kodchasan', 'hand', 'hand'), srisakdi: F('Srisakdi', 'hand', 'hand', 1.55),
+  kanit: F('Kanit', 'display'), mitr: F('Mitr', 'display'), chonburi: F('Chonburi', 'display', 'serif', 1.6),
+  pattaya: F('Pattaya', 'display', 'hand'), chakra: F('Chakra Petch', 'display'),
+  charm: F('Charm', 'script', 'serif', 1.45), charmonman: F('Charmonman', 'script', 'serif', 1.45), sriracha: F('Sriracha', 'script', 'hand'),
+  cinzel: F('Cinzel', 'en', 'serif', 1.5, 'Noto Serif Thai'), playfair: F('Playfair Display', 'en', 'serif', 1.5, 'Noto Serif Thai'),
+  cormorant: F('Cormorant Garamond', 'en', 'serif', 1.5, 'Noto Serif Thai'), medieval: F('MedievalSharp', 'en', 'serif', 1.5, 'Fahkwang'),
+  greatvibes: F('Great Vibes', 'en', 'serif', 1.5, 'Charmonman'), dancing: F('Dancing Script', 'en', 'serif', 1.5, 'Charmonman'),
+  pacifico: F('Pacifico', 'en', 'hand', 1.5, 'Mali'), lobster: F('Lobster', 'en', 'hand', 1.5, 'Pattaya'),
+  caveat: F('Caveat', 'en', 'hand', 1.5, 'Mali'), marker: F('Permanent Marker', 'en', 'hand', 1.5, 'Mali'),
+  elite: F('Special Elite', 'en', 'sans', 1.5, 'Sarabun'), orbitron: F('Orbitron', 'en', 'sans', 1.5, 'Chakra Petch'),
+  pixel: F('Press Start 2P', 'en', 'sans', 1.6, 'Chakra Petch'), creepster: F('Creepster', 'en', 'sans', 1.5, 'Kanit'),
+  rye: F('Rye', 'en', 'serif', 1.5, 'Chonburi'), bangers: F('Bangers', 'en', 'sans', 1.5, 'Mitr')
+};
+const FONT_CATS = [['sans', 'Modern', 'ทันสมัย'], ['serif', 'Serif', 'มีหัว'], ['hand', 'Handwritten', 'ลายมือ'], ['display', 'Bold & display', 'ตัวเด่น'], ['script', 'Script', 'ประดิษฐ์'], ['en', 'English', 'อังกฤษ']];
+const fontCssP = {}, fontOk = {};
+function fontCss(fam) {
+  if (fontCssP[fam]) return fontCssP[fam];
+  return fontCssP[fam] = new Promise(res => {
+    const l = document.createElement('link'); l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=' + fam.replace(/ /g, '+') + '&display=swap';
+    l.onload = () => res(true); l.onerror = () => res(false);
+    document.head.append(l); setTimeout(() => res(false), 4000);
+  });
+}
+function loadAllFontCss() { Object.values(FONTS).forEach(f => { fontCss(f.fam); f.fbf.forEach(fontCss); }); }
+
+// ---- themes: colours + background pattern (deco) + card style (cs), grouped by category ----
+const TH = (cat, en, th, o) => Object.assign({ cat, n_en: en, n_th: th, cs: 'round' }, o);
+const CLEAR = 'rgba(0,0,0,0)';
+const THEMES = {
+  // classic
+  paper:    TH('basic', 'Paper', 'กระดาษ', { bg: ['#fbf3e4', '#f3e2c0'], deco: 'lines', dc: '#c9a96a', da: .2, card: '#ffffff', stroke: '#e6ded3', ink: '#2b2622', muted: '#6b625a', accent: '#f0b04a' }),
+  minimal:  TH('basic', 'Minimal', 'มินิมอล', { bg: ['#ffffff'], frame: true, fc: '#111111', cs: 'none', ink: '#111111', muted: '#666666', accent: '#111111' }),
+  mono:     TH('basic', 'Mono', 'ขาวดำ', { bg: ['#0b0b0b'], frame: true, fc: '#ffffff', cs: 'none', ink: '#ffffff', muted: '#aaaaaa', accent: '#ffffff' }),
+  newsprint: TH('basic', 'Newsprint', 'หนังสือพิมพ์', { bg: ['#efeadd'], deco: 'lines', dc: '#111111', da: .07, frame: true, fc: '#111111', cs: 'none', ink: '#151515', muted: '#555555', accent: '#b3261e' }),
+  graymono: TH('basic', 'Gray', 'เทา', { bg: ['#e9ecef', '#cfd4da'], deco: 'grid', dc: '#495057', da: .1, card: '#ffffff', stroke: '#ced4da', ink: '#212529', muted: '#6c757d', accent: '#212529' }),
+  kraft:    TH('basic', 'Kraft', 'คราฟต์', { bg: ['#c9a27a', '#b88b60'], deco: 'noise', dc: '#3b2a1a', da: .14, cs: 'tape', card: '#fffdf7', stroke: '#e5d8c4', ink: '#3b2a1a', muted: '#8a7258', accent: '#c0392b', tape: '#f2d46b', top: '#3b2a1a' }),
+  chalk:    TH('basic', 'Chalk', 'กระดานดำ', { bg: ['#1f3d34', '#16302a'], deco: 'noise', dc: '#ffffff', da: .09, frame: true, fc: '#e8dcc0', cs: 'none', ink: '#f5f0e1', muted: '#c9c2ae', accent: '#ffd966' }),
+  noir:     TH('basic', 'Black & gold', 'ดำทอง', { bg: ['#0d0d0f', '#1c1b22'], deco: 'diamonds', dc: '#d4af37', da: .2, cs: 'double', card: '#17171b', stroke: '#d4af37', ink: '#f7f1e1', muted: '#b9ad8a', accent: '#d4af37', top: '#f7f1e1' }),
+  retro:    TH('basic', 'Retro', 'เรโทร', { bg: ['#f4e6c8'], deco: 'rays', dc: '#c0392b', da: .1, cs: 'sharp', card: '#fff7e2', stroke: '#c0392b', ink: '#3a2a1a', muted: '#7a6444', accent: '#c0392b', shadow: '#c0392b' }),
+  denim:    TH('basic', 'Denim', 'ยีนส์', { bg: ['#27406b', '#3f5f94'], deco: 'stitch', dc: '#e7b84a', da: .75, card: '#f3f6fb', stroke: CLEAR, ink: '#1b2a45', muted: '#5b6f93', accent: '#e7b84a', top: '#f3f6fb' }),
+  pixel:    TH('basic', 'Pixel', 'พิกเซล', { bg: ['#12122a'], deco: 'checker', dc: '#ffffff', da: .05, cs: 'sharp', card: '#1d1d3d', stroke: '#00e5ff', ink: '#ffffff', muted: '#9fa8ff', accent: '#ff2e88', shadow: '#ff2e88', top: '#ffffff' }),
+  blueprint: TH('basic', 'Blueprint', 'พิมพ์เขียว', { bg: ['#1b4fa0', '#143b7a'], deco: 'grid', dc: '#ffffff', da: .2, frame: true, fc: '#ffffff', cs: 'none', ink: '#ffffff', muted: '#cfe0ff', accent: '#ffd54a' }),
+  terminal: TH('basic', 'Terminal', 'เทอร์มินัล', { bg: ['#050805', '#0b140b'], deco: 'scan', dc: '#33ff66', da: .12, frame: true, fc: '#33ff66', cs: 'none', ink: '#33ff66', muted: '#1faa44', accent: '#33ff66' }),
+  // colourful
+  pop:      TH('color', 'Pop', 'ป๊อป', { bg: ['#ffe14d'], deco: 'stripes', dc: '#ffffff', da: .4, cs: 'sharp', card: '#ffffff', stroke: '#111111', ink: '#111111', muted: '#444444', accent: '#ff4f8b', shadow: '#111111' }),
+  candy:    TH('color', 'Candy', 'ลูกกวาด', { bg: ['#a8e6ff', '#ffc8f0'], deco: 'confetti', cf: ['#ff5fa2', '#ffd23f', '#3ec6ff', '#7b61ff'], da: .75, cs: 'sharp', card: '#ffffff', stroke: '#1a1a2e', ink: '#1a1a2e', muted: '#55557a', accent: '#ff5fa2', shadow: '#1a1a2e' }),
+  lemon:    TH('color', 'Lemon', 'เลมอน', { bg: ['#e9ff70', '#f9ff9e'], deco: 'stripes', dc: '#4cbf2a', da: .16, cs: 'sharp', card: '#ffffff', stroke: '#111111', ink: '#111111', muted: '#444444', accent: '#4cbf2a', shadow: '#111111' }),
+  bubblegum: TH('color', 'Bubblegum', 'หมากฝรั่ง', { bg: ['#ff9ad5', '#ffc8ea'], deco: 'plus', dc: '#ffffff', da: .4, card: '#ffffff', stroke: CLEAR, ink: '#4a1138', muted: '#9a4c84', accent: '#ff4fb2', top: '#4a1138' }),
+  pastel:   TH('color', 'Pastel', 'พาสเทล', { bg: ['#ffd1dc', '#d1e8ff', '#d4ffe4'], deco: 'confetti', cf: ['#ff8fab', '#8ecae6', '#95d5b2', '#ffd166'], da: .8, card: '#ffffff', stroke: 'rgba(0,0,0,0.05)', ink: '#33364d', muted: '#7a7d96', accent: '#ff8fab', top: '#33364d' }),
+  tangerine: TH('color', 'Tangerine', 'ส้ม', { bg: ['#ff9f1c', '#ffbf69'], deco: 'stripes', dc: '#ffffff', da: .2, card: '#ffffff', stroke: CLEAR, ink: '#3d2200', muted: '#8a5a1f', accent: '#ff6a00', top: '#3d2200' }),
+  cotton:   TH('color', 'Cotton', 'สำลี', { bg: ['#ffe0ec', '#dff1ff'], deco: 'dots', dc: '#ffffff', da: .85, card: 'rgba(255,255,255,0.85)', stroke: '#ffffff', ink: '#3a3455', muted: '#8a84a8', accent: '#a78bfa' }),
+  peach:    TH('color', 'Peach', 'พีช', { bg: ['#ffe3d3', '#ffc2a8'], deco: 'zigzag', dc: '#ff7a4d', da: .22, card: '#fffaf6', stroke: '#f5b79a', ink: '#4a2418', muted: '#9a6450', accent: '#ff7a4d' }),
+  butter:   TH('color', 'Butter', 'เนย', { bg: ['#fff6bf', '#ffe896'], deco: 'checker', dc: '#e8b400', da: .13, cs: 'tape', card: '#fffdf2', stroke: '#f0d870', ink: '#4a3d0f', muted: '#8f7d3a', accent: '#e8b400', tape: '#ffb8c8' }),
+  mint:     TH('color', 'Mint', 'มิ้นต์', { bg: ['#d7f1e8', '#a9dccb'], deco: 'dots', dc: '#3f6b63', da: .16, card: '#ffffff', stroke: '#8cc9b6', ink: '#1f3d37', muted: '#4d7a70', accent: '#3f6b63' }),
+  matcha:   TH('color', 'Matcha', 'มัทฉะ', { bg: ['#cfe3b4', '#a6c887'], deco: 'lines', dc: '#5f8a2f', da: .18, card: '#f7faef', stroke: '#8fb06e', ink: '#25361a', muted: '#5f7a49', accent: '#5f8a2f' }),
+  lavender: TH('color', 'Lavender', 'ลาเวนเดอร์', { bg: ['#e5dcff', '#cfe0ff'], deco: 'sparkles', dc: '#8b6cf0', da: .32, card: '#ffffff', stroke: '#c9bdf2', ink: '#2a2150', muted: '#6c62a0', accent: '#8b6cf0' }),
+  grape:    TH('color', 'Grape', 'องุ่น', { bg: ['#5a2d82', '#8a4fb8'], deco: 'sparkles', dc: '#e0b3ff', da: .4, card: '#fbf6ff', stroke: CLEAR, ink: '#2e1442', muted: '#7a5a95', accent: '#a64ee0', top: '#ffffff' }),
+  coral:    TH('color', 'Coral', 'ปะการัง', { bg: ['#ff7e67', '#ffb199'], deco: 'stripes', dc: '#ffffff', da: .14, card: '#ffffff', stroke: CLEAR, ink: '#3d1710', muted: '#8f5548', accent: '#ff5a3d', top: '#ffffff' }),
+  sky:      TH('color', 'Sky', 'ท้องฟ้า', { bg: ['#bfe4ff', '#e8f6ff'], deco: 'plus', dc: '#2f8ff0', da: .22, card: '#ffffff', stroke: '#a9d4f5', ink: '#14375a', muted: '#547a9c', accent: '#2f8ff0' }),
+  lotus:    TH('color', 'Lotus', 'บัว', { bg: ['#ffe6f0', '#e4f6e8'], deco: 'sparkles', dc: '#e86aa0', da: .3, card: '#ffffff', stroke: '#f4c3d6', ink: '#3a2230', muted: '#8f6479', accent: '#e86aa0' }),
+  rosegold: TH('color', 'Rose gold', 'โรสโกลด์', { bg: ['#f6d5cf', '#e9b8ad'], deco: 'diamonds', dc: '#c9786a', da: .18, cs: 'double', card: '#fff6f3', stroke: '#d9a094', ink: '#4a2a26', muted: '#9a6a62', accent: '#c9786a' }),
+  emerald:  TH('color', 'Emerald', 'มรกต', { bg: ['#04382c', '#0a5a45'], deco: 'diamonds', dc: '#e6c35c', da: .18, cs: 'double', card: '#f6f1e0', stroke: '#c9a43a', ink: '#0b2e24', muted: '#5c7a6b', accent: '#c9a43a', top: '#f6f1e0' }),
+  forest:   TH('color', 'Forest', 'ป่าเขียว', { bg: ['#14342b', '#2f6b4f'], deco: 'triangles', dc: '#d9a441', da: .16, card: '#f4f1e6', stroke: CLEAR, ink: '#1b2e26', muted: '#5a6f63', accent: '#d9a441', top: '#f4f1e6' }),
+  cocoa:    TH('color', 'Cocoa', 'โกโก้', { bg: ['#4a2c22', '#2b1a15'], deco: 'noise', dc: '#f6ead8', da: .1, cs: 'double', card: '#f6ead8', stroke: CLEAR, ink: '#3a2218', muted: '#8a6a58', accent: '#c8742c', top: '#f6ead8' }),
+  // festivals
+  christmas: TH('festival', 'Christmas', 'คริสต์มาส', { bg: ['#0e5a2e', '#0a3f20'], deco: 'snow', dc: '#ffffff', da: .6, cs: 'double', card: '#fff7ee', stroke: '#c1121f', ink: '#2a1a12', muted: '#8a4a3a', accent: '#c1121f', top: '#fff7ee' }),
+  santa:    TH('festival', 'Santa', 'ซานต้า', { bg: ['#c1121f', '#8f0d18'], deco: 'snowflakes', dc: '#ffffff', da: .35, card: '#fffaf3', stroke: CLEAR, ink: '#3a0d12', muted: '#8a4a50', accent: '#2a9d4a', top: '#ffffff' }),
+  halloween: TH('festival', 'Halloween', 'ฮาโลวีน', { bg: ['#1a0f2e', '#2b123f'], deco: 'cobweb', dc: '#f4a261', da: .45, cs: 'sharp', card: '#fff3e0', stroke: '#ff7a00', shadow: '#ff7a00', ink: '#2b123f', muted: '#7a4a2a', accent: '#ff7a00', top: '#ff9f1c' }),
+  lunar:    TH('festival', 'Lunar New Year', 'ตรุษจีน', { bg: ['#b3001b', '#e0242f'], deco: 'diamonds', dc: '#ffd166', da: .28, cs: 'double', card: '#fff3d6', stroke: '#d4a017', ink: '#5a0010', muted: '#9a5a30', accent: '#d4a017', top: '#ffd166' }),
+  easter:   TH('festival', 'Easter', 'อีสเตอร์', { bg: ['#e6f7ff', '#fdeaff', '#fff9d6'], deco: 'confetti', cf: ['#ffb3d9', '#b3e5ff', '#d4f5b3', '#ffe6a3'], da: .85, card: '#ffffff', stroke: 'rgba(0,0,0,0.05)', ink: '#40305a', muted: '#8a7ba8', accent: '#b388ff' }),
+  diwali:   TH('festival', 'Diwali', 'ดิวาลี', { bg: ['#2b0a3d', '#7a1f5c', '#ff8c00'], deco: 'sparkles', dc: '#ffd166', da: .6, cs: 'double', card: 'rgba(255,255,255,0.12)', stroke: '#ffd166', ink: '#fff7e0', muted: '#ffe0a8', accent: '#ffb703', top: '#fff7e0' }),
+  holi:     TH('festival', 'Holi', 'โฮลี', { bg: ['#ff4fa3', '#ffd23f', '#3ec6ff'], deco: 'confetti', cf: ['#ff4fa3', '#ffd23f', '#3ec6ff', '#7b61ff', '#2ecc71'], da: .9, card: '#ffffff', stroke: CLEAR, ink: '#2a1a4a', muted: '#6a5a8a', accent: '#ff4fa3', top: '#2a1a4a' }),
+  stpatrick: TH('festival', "St. Patrick's", 'เซนต์แพทริก', { bg: ['#0f7a3a', '#34c759'], deco: 'dots', dc: '#ffd166', da: .3, card: '#f4fff0', stroke: CLEAR, ink: '#0b3d1c', muted: '#4a7a5a', accent: '#d4a017', top: '#ffffff' }),
+  autumn:   TH('festival', 'Autumn leaves', 'ใบไม้ร่วง', { bg: ['#7a3e10', '#c8742c'], deco: 'leaves', dc: '#ffd9a0', da: .35, card: '#fff6e8', stroke: CLEAR, ink: '#3d1f08', muted: '#8a5a30', accent: '#c8742c', top: '#fff6e8' }),
+  birthday: TH('festival', 'Birthday', 'วันเกิด', { bg: ['#fff4f8', '#ffe6cc'], deco: 'bunting', cf: ['#ef476f', '#ffd166', '#06d6a0', '#118ab2'], da: .95, card: '#ffffff', stroke: '#f5d9c6', ink: '#3a2a3a', muted: '#9a7a8a', accent: '#ef476f' }),
+  wedding:  TH('festival', 'Wedding', 'งานแต่ง', { bg: ['#fffaf0', '#f3e6d0'], deco: 'sparkles', dc: '#c9a43a', da: .45, cs: 'double', card: '#fffdf8', stroke: '#c9a43a', ink: '#4a3b2a', muted: '#9a8468', accent: '#c9a43a' }),
+  eid:      TH('festival', 'Eid', 'อีด', { bg: ['#063d3a', '#0b6b5e'], deco: 'diamonds', dc: '#ffd166', da: .18, cs: 'double', card: '#fbf6e4', stroke: '#c9a43a', ink: '#0b2e2a', muted: '#5c7a6b', accent: '#c9a43a', top: '#fbf6e4' }),
+  graduation: TH('festival', 'Graduation', 'รับปริญญา', { bg: ['#1b2a5e', '#2f4a9c'], deco: 'confetti', cf: ['#ffd166', '#ffffff'], da: .8, card: '#fffdf4', stroke: '#ffd166', ink: '#1b2a5e', muted: '#5a6a9a', accent: '#c9a43a', top: '#ffffff' }),
+  // love
+  valentine: TH('love', 'Valentine', 'วาเลนไทน์', { bg: ['#ff5d8f', '#ff9eb5'], deco: 'hearts', dc: '#ffffff', da: .3, card: '#ffffff', stroke: CLEAR, ink: '#5c1030', muted: '#a04a6a', accent: '#e0245e', top: '#ffffff' }),
+  sakura:   TH('love', 'Sakura', 'ซากุระ', { bg: ['#ffd3e2', '#fff0f5'], deco: 'petals', dc: '#ef6a9a', da: .35, card: '#ffffff', stroke: '#f6b6cb', ink: '#4a1f33', muted: '#9a5a74', accent: '#ef6a9a' }),
+  cherry:   TH('love', 'Cherry', 'เชอร์รี่', { bg: ['#8f0f2b', '#c2183d'], deco: 'hearts', dc: '#ffffff', da: .13, card: '#fff4ec', stroke: CLEAR, ink: '#3d0a16', muted: '#8a4a55', accent: '#d81e4a', top: '#ffffff' }),
+  rose:     TH('love', 'Rose', 'กุหลาบ', { bg: ['#7a0f2e', '#b3123f'], deco: 'petals', dc: '#ff8fab', da: .35, card: '#fff1f4', stroke: CLEAR, ink: '#4a0a1e', muted: '#9a4a5e', accent: '#c2185b', top: '#ffffff' }),
+  blush:    TH('love', 'Blush', 'แก้มแดง', { bg: ['#ffd6e0', '#ffeef2'], deco: 'sparkles', dc: '#ff8fab', da: .4, card: '#ffffff', stroke: '#ffc2d1', ink: '#5a2a3a', muted: '#a06a7a', accent: '#ff6b9a' }),
+  romance:  TH('love', 'Romance', 'โรแมนติก', { bg: ['#4a1942', '#a1305f', '#ff7e8b'], deco: 'hearts', dc: '#ffffff', da: .12, card: 'rgba(255,255,255,0.14)', stroke: 'rgba(255,255,255,0.35)', ink: '#fff0f5', muted: '#ffd0de', accent: '#ffb3c6', top: '#fff0f5' }),
+  crush:    TH('love', 'Crush', 'แอบชอบ', { bg: ['#ffe0f0', '#e0d4ff'], deco: 'plus', dc: '#ff6b9a', da: .3, card: '#ffffff', stroke: '#f3c9e0', ink: '#4a2050', muted: '#9a6aa0', accent: '#ff6b9a' }),
+  sweetheart: TH('love', 'Sweetheart', 'ที่รัก', { bg: ['#ffcad4', '#f4acb7'], deco: 'dots', dc: '#ffffff', da: .55, card: '#ffffff', stroke: CLEAR, ink: '#6d2e46', muted: '#a8687e', accent: '#e5989b' }),
+  firstlove: TH('love', 'First love', 'รักแรก', { bg: ['#fff0f6', '#e7f0ff'], deco: 'sparkles', dc: '#7aa7ff', da: .45, card: '#ffffff', stroke: '#d6e4ff', ink: '#2a3a5a', muted: '#6a7a9a', accent: '#7aa7ff' }),
+  redvelvet: TH('love', 'Red velvet', 'เรดเวลเวต', { bg: ['#5c0a1e', '#8f1230'], deco: 'diamonds', dc: '#ffb3c1', da: .2, cs: 'double', card: '#fff3f0', stroke: '#c9a43a', ink: '#4a0a16', muted: '#8a4a55', accent: '#c2185b', top: '#fff3f0' }),
+  lovenight: TH('love', 'Love night', 'ค่ำคืนแห่งรัก', { bg: ['#1a0b2e', '#4b1d5e'], deco: 'stars', dc: '#ff9ec7', da: .7, card: 'rgba(255,255,255,0.08)', stroke: 'rgba(255,158,199,0.5)', ink: '#ffe8f2', muted: '#e0a8c4', accent: '#ff7eb6', top: '#ffe8f2' }),
+  loveletter: TH('love', 'Love letter', 'จดหมายรัก', { bg: ['#f7e8d0', '#ecd5b0'], deco: 'lines', dc: '#b07a4a', da: .18, cs: 'tape', card: '#fffaf0', stroke: '#e8d9bd', ink: '#4a2f1a', muted: '#9a7a5a', accent: '#c0392b', tape: '#e57373' }),
+  // feelings
+  happy:    TH('feel', 'Happy', 'มีความสุข', { bg: ['#fff3a3', '#ffd36b'], deco: 'rays', dc: '#ffffff', da: .3, card: '#fffdf0', stroke: CLEAR, ink: '#4a3300', muted: '#8a6a20', accent: '#ff9f1c' }),
+  joyful:   TH('feel', 'Joyful', 'ร่าเริง', { bg: ['#7bdff2', '#b2f7ef', '#f7d6e0'], deco: 'confetti', cf: ['#ff6b9a', '#ffd166', '#06d6a0', '#118ab2'], da: .85, card: '#ffffff', stroke: CLEAR, ink: '#1d3557', muted: '#5a7090', accent: '#ff6b9a' }),
+  calm:     TH('feel', 'Calm', 'สงบ', { bg: ['#d8efe9', '#bcd9d4'], deco: 'waves', dc: '#4a7c76', da: .22, card: '#ffffff', stroke: '#a9cdc6', ink: '#1f3d3a', muted: '#5a8580', accent: '#4a7c76' }),
+  zen:      TH('feel', 'Zen', 'เซน', { bg: ['#f4f1ea', '#e4dfd2'], deco: 'lines', dc: '#8a8272', da: .15, frame: true, fc: '#2f2f2f', cs: 'none', ink: '#2f2f2f', muted: '#7a7566', accent: '#a23b2a' }),
+  hope:     TH('feel', 'Hope', 'ความหวัง', { bg: ['#ffe9a8', '#ffc2d4', '#c7e0ff'], deco: 'rays', dc: '#ffffff', da: .28, card: 'rgba(255,255,255,0.7)', stroke: 'rgba(255,255,255,0.9)', ink: '#4a3a2a', muted: '#8a7a5a', accent: '#ff9f1c' }),
+  dreamy:   TH('feel', 'Dreamy', 'ฝันหวาน', { bg: ['#c3b1ff', '#ffc9e8', '#b8f2ff'], deco: 'sparkles', dc: '#ffffff', da: .7, card: 'rgba(255,255,255,0.6)', stroke: 'rgba(255,255,255,0.9)', ink: '#3a2a66', muted: '#7a6aa0', accent: '#8b6cf0' }),
+  grateful: TH('feel', 'Grateful', 'ขอบคุณ', { bg: ['#ffe5d0', '#ffd1a1'], deco: 'sparkles', dc: '#e07a3f', da: .35, card: '#fffaf4', stroke: '#f5c9a0', ink: '#4a2a14', muted: '#9a6a48', accent: '#e07a3f' }),
+  energy:   TH('feel', 'Energy', 'พลังล้น', { bg: ['#00c2ff', '#7a5cff'], deco: 'zigzag', dc: '#ffffff', da: .25, card: '#ffffff', stroke: CLEAR, ink: '#1c1650', muted: '#5a5a9a', accent: '#7a5cff', top: '#ffffff' }),
+  anger:    TH('feel', 'Anger', 'โกรธ', { bg: ['#1a0000', '#5c0a0a'], deco: 'lightning', dc: '#ff3b30', da: .5, cs: 'sharp', card: '#1f0a0a', stroke: '#ff3b30', shadow: '#ff3b30', ink: '#ffffff', muted: '#ffb3ae', accent: '#ff3b30', top: '#ffffff' }),
+  anxious:  TH('feel', 'Anxious', 'กังวล', { bg: ['#3a3f4a', '#22252e'], deco: 'zigzag', dc: '#ffffff', da: .1, frame: true, fc: '#9aa3b5', cs: 'none', ink: '#e8ebf2', muted: '#9aa3b5', accent: '#9aa3b5' }),
+  nostalgia: TH('feel', 'Nostalgia', 'คิดถึงวันวาน', { bg: ['#d9b99b', '#b9906e'], deco: 'noise', dc: '#3b2a1a', da: .16, cs: 'tape', card: '#fbf1e1', stroke: '#e5d3b8', ink: '#3b2a1a', muted: '#8a7258', accent: '#9c5b3a', tape: '#c9a27a', top: '#3b2a1a' }),
+  night:    TH('feel', 'Night', 'ราตรี', { bg: ['#1b2145', '#40295f'], deco: 'stars', dc: '#ffffff', da: .7, card: 'rgba(255,255,255,0.10)', stroke: 'rgba(255,255,255,0.28)', ink: '#f6f2ff', muted: '#c9c0e6', accent: '#ffd27a', top: '#f6f2ff' }),
+  // sad & lonely
+  lonely:   TH('sad', 'Lonely', 'เหงา', { bg: ['#1b2230', '#2d3a4f'], deco: 'stars', dc: '#a9bde0', da: .45, card: 'rgba(255,255,255,0.06)', stroke: 'rgba(169,189,224,0.3)', ink: '#dbe6ff', muted: '#8fa3c7', accent: '#8fb4ff', top: '#dbe6ff' }),
+  bluemood: TH('sad', 'Blue mood', 'ใจหม่น', { bg: ['#2b4a73', '#4a6fa5'], deco: 'rain', dc: '#cfe3ff', da: .3, card: 'rgba(255,255,255,0.12)', stroke: 'rgba(255,255,255,0.3)', ink: '#eaf2ff', muted: '#b8cdea', accent: '#9ec5ff', top: '#eaf2ff' }),
+  gloomy:   TH('sad', 'Gloomy', 'หม่นหมอง', { bg: ['#6b7280', '#4b5563'], deco: 'lines', dc: '#ffffff', da: .08, frame: true, fc: '#d1d5db', cs: 'none', ink: '#f3f4f6', muted: '#d1d5db', accent: '#d1d5db' }),
+  memories: TH('sad', 'Faded memories', 'ความทรงจำ', { bg: ['#cbbfae', '#a89a86'], deco: 'noise', dc: '#3b2a1a', da: .14, cs: 'tape', card: '#efe6d8', stroke: '#d8cdb8', ink: '#4a3f33', muted: '#8a7a64', accent: '#8a7a64', tape: '#d8cdb8', top: '#3b2a1a' }),
+  tears:    TH('sad', 'Teardrop', 'น้ำตา', { bg: ['#e8f1f8', '#c9dcec'], deco: 'rain', dc: '#5a8ab0', da: .25, card: '#ffffff', stroke: '#b9d0e4', ink: '#1f3347', muted: '#6a8aa8', accent: '#5a8ab0' }),
+  emptyroom: TH('sad', 'Empty room', 'ห้องว่าง', { bg: ['#2a2a2e', '#3a3a40'], frame: true, fc: '#7a7a85', cs: 'none', ink: '#c9c9d1', muted: '#8a8a95', accent: '#7a7a85' }),
+  midnight: TH('sad', 'Midnight moon', 'จันทร์เที่ยงคืน', { bg: ['#050b1f', '#0e1a3d'], deco: 'crescent', cr: .055, sp: 8, dc: '#e8eeff', da: .6, card: 'rgba(255,255,255,0.06)', stroke: 'rgba(159,183,255,0.35)', ink: '#e6edff', muted: '#9fb3e0', accent: '#9fb7ff', top: '#e6edff' }),
+  melancholy: TH('sad', 'Melancholy', 'เศร้าซึม', { bg: ['#3b2a4a', '#5a4170'], deco: 'petals', dc: '#b79fd1', da: .3, card: 'rgba(255,255,255,0.1)', stroke: 'rgba(255,255,255,0.25)', ink: '#f1e8fa', muted: '#c8b4dc', accent: '#c9a8ff', top: '#f1e8fa' }),
+  lastlight: TH('sad', 'Last light', 'แสงสุดท้าย', { bg: ['#2b1a3a', '#7a3b5c', '#d98b6a'], deco: 'mountains', dc: '#1a0f24', da: .55, card: 'rgba(255,255,255,0.14)', stroke: 'rgba(255,255,255,0.35)', ink: '#fff4ee', muted: '#f0cfc4', accent: '#ffb38a', top: '#fff4ee' }),
+  heartbreak: TH('sad', 'Heartbreak', 'อกหัก', { bg: ['#2a0f1c', '#5c1a33'], deco: 'hearts', dc: '#ff4d6d', da: .15, card: '#1f0b14', stroke: '#ff4d6d', ink: '#ffd9e0', muted: '#d08a9a', accent: '#ff4d6d', top: '#ffd9e0' }),
+  // weather
+  hot:      TH('weather', 'Hot', 'ร้อน', { bg: ['#ff9500', '#ffd60a'], deco: 'rays', dc: '#ffffff', da: .3, card: '#fffbea', stroke: CLEAR, ink: '#5a2e00', muted: '#9a6a20', accent: '#ff6a00', top: '#5a2e00' }),
+  heatwave: TH('weather', 'Heat wave', 'ร้อนระอุ', { bg: ['#d00000', '#ff6d00', '#ffba08'], deco: 'waves', dc: '#ffffff', da: .28, card: '#fff8ec', stroke: CLEAR, ink: '#4a1500', muted: '#8a4a20', accent: '#d00000', top: '#ffffff' }),
+  desert:   TH('weather', 'Desert', 'ทะเลทราย', { bg: ['#f4d6a0', '#e0a96a'], deco: 'dunes', dc: '#a8642a', da: .4, card: '#fff7e6', stroke: '#e8c690', ink: '#4a2a10', muted: '#9a6a40', accent: '#c0692b' }),
+  sunny:    TH('weather', 'Sunny day', 'แดดจ้า', { bg: ['#7cc7ff', '#d7f0ff'], deco: 'rays', dc: '#ffd60a', da: .45, card: '#ffffff', stroke: CLEAR, ink: '#12365a', muted: '#4a7090', accent: '#ff9f1c' }),
+  summer:   TH('weather', 'Summer', 'ฤดูร้อน', { bg: ['#00c9a7', '#ffd93d'], deco: 'waves', dc: '#ffffff', da: .35, card: '#ffffff', stroke: CLEAR, ink: '#0b3b36', muted: '#3a7a70', accent: '#ff6f61', top: '#0b3b36' }),
+  tropical: TH('weather', 'Tropical', 'เขตร้อน', { bg: ['#00b4a6', '#ffd166'], deco: 'leaves', dc: '#064e3b', da: .22, card: '#fffdf4', stroke: CLEAR, ink: '#05382e', muted: '#3a7a68', accent: '#ff6f61', top: '#05382e' }),
+  sunset:   TH('weather', 'Sunset', 'อัสดง', { bg: ['#ff9a8b', '#ffd29d'], deco: 'rays', dc: '#ffffff', da: .18, card: 'rgba(255,255,255,0.9)', stroke: CLEAR, ink: '#3a1f2b', muted: '#7a4b57', accent: '#ff6f61', top: '#3a1f2b' }),
+  sunrise:  TH('weather', 'Sunrise', 'อรุณ', { bg: ['#ff7e8b', '#ffb36b', '#ffe29a'], deco: 'rays', dc: '#ffffff', da: .16, card: 'rgba(255,255,255,0.92)', stroke: CLEAR, ink: '#4a2314', muted: '#8f5a44', accent: '#ff6b3d', top: '#4a2314' }),
+  ocean:    TH('weather', 'Ocean', 'ทะเล', { bg: ['#0f4c81', '#2bb3c0'], deco: 'waves', dc: '#ffffff', da: .22, card: 'rgba(255,255,255,0.94)', stroke: CLEAR, ink: '#0b2a45', muted: '#3d6a85', accent: '#0f7ea8', top: '#ffffff' }),
+  rain:     TH('weather', 'Rain', 'ฝนตก', { bg: ['#4a5d73', '#2f3d4f'], deco: 'rain', dc: '#cfe3ff', da: .35, card: 'rgba(255,255,255,0.12)', stroke: 'rgba(255,255,255,0.3)', ink: '#eef4ff', muted: '#b8cde6', accent: '#8ec5ff', top: '#eef4ff' }),
+  drizzle:  TH('weather', 'Drizzle', 'ฝนปรอย', { bg: ['#dfe9f3', '#c0d0e0'], deco: 'rain', dc: '#5a7a9a', da: .25, card: '#ffffff', stroke: '#b9cadb', ink: '#1e3347', muted: '#6a8aa8', accent: '#5a7a9a' }),
+  storm:    TH('weather', 'Storm', 'พายุ', { bg: ['#1c2333', '#3d4a6b'], deco: 'lightning', dc: '#ffe066', da: .55, card: 'rgba(255,255,255,0.1)', stroke: 'rgba(255,224,102,0.5)', ink: '#ffffff', muted: '#c5cde0', accent: '#ffe066', top: '#ffffff' }),
+  fog:      TH('weather', 'Fog', 'หมอก', { bg: ['#e5e9ec', '#cfd6dc'], deco: 'waves', dc: '#ffffff', da: .6, card: 'rgba(255,255,255,0.7)', stroke: 'rgba(255,255,255,0.9)', ink: '#2b3640', muted: '#6a7a88', accent: '#7b8a96' }),
+  rainbow:  TH('weather', 'Rainbow', 'สายรุ้ง', { bg: ['#ffadad', '#ffd6a5', '#fdffb6', '#caffbf', '#9bf6ff', '#bdb2ff'], deco: 'sparkles', dc: '#ffffff', da: .8, card: '#ffffff', stroke: CLEAR, ink: '#40305a', muted: '#8a7aa8', accent: '#8b6cf0' }),
+  cold:     TH('weather', 'Cold', 'หนาว', { bg: ['#a8d8f0', '#dff3ff'], deco: 'snowflakes', dc: '#ffffff', da: .85, card: '#ffffff', stroke: CLEAR, ink: '#12354f', muted: '#4a7a9a', accent: '#3a8fd1' }),
+  winter:   TH('weather', 'Winter', 'ฤดูหนาว', { bg: ['#1c3a5e', '#5b86b8'], deco: 'snow', dc: '#ffffff', da: .7, card: 'rgba(255,255,255,0.92)', stroke: CLEAR, ink: '#10283f', muted: '#4a6a8a', accent: '#4a90d9', top: '#ffffff' }),
+  snow:     TH('weather', 'Snow', 'หิมะ', { bg: ['#f4f9ff', '#dbe9f7'], deco: 'snow', dc: '#9ec1e6', da: .7, card: '#ffffff', stroke: '#cfe0f0', ink: '#1d3a56', muted: '#6a8aa8', accent: '#6aa7e0' }),
+  blizzard: TH('weather', 'Blizzard', 'พายุหิมะ', { bg: ['#9fb4c7', '#e7eef5'], deco: 'snow', dc: '#ffffff', da: .95, card: 'rgba(255,255,255,0.8)', stroke: '#ffffff', ink: '#1f3347', muted: '#5a7690', accent: '#5a8ab0' }),
+  ice:      TH('weather', 'Ice', 'น้ำแข็ง', { bg: ['#e6f4ff', '#f7fbff'], deco: 'grid', dc: '#5ab2e8', da: .18, card: 'rgba(255,255,255,0.8)', stroke: '#cfe6f7', ink: '#173048', muted: '#6a8aa3', accent: '#5ab2e8' }),
+  frozen:   TH('weather', 'Frozen', 'แช่แข็ง', { bg: ['#7fd3ff', '#e6fbff'], deco: 'snowflakes', dc: '#ffffff', da: .9, card: 'rgba(255,255,255,0.75)', stroke: '#ffffff', ink: '#0b3a5a', muted: '#4a7a9a', accent: '#00a8e8' }),
+  aurora:   TH('weather', 'Aurora', 'ออโรรา', { bg: ['#0f2b3d', '#3a1f5c'], deco: 'waves', dc: '#6ef3c5', da: .3, card: 'rgba(255,255,255,0.12)', stroke: 'rgba(255,255,255,0.3)', ink: '#f4fbff', muted: '#bfe3ee', accent: '#6ef3c5', top: '#f4fbff' }),
+  embers:   TH('weather', 'Embers', 'ถ่านแดง', { bg: ['#140a08', '#2b1410'], deco: 'embers', dc: '#ff7a1a', da: .9, card: 'rgba(255,255,255,0.06)', stroke: 'rgba(255,122,26,0.5)', ink: '#ffe9d6', muted: '#d9a98a', accent: '#ff7a1a', top: '#ffe9d6' }),
+  lava:     TH('weather', 'Lava', 'ลาวา', { bg: ['#2b0000', '#b30000', '#ff6a00'], deco: 'zigzag', dc: '#ffd000', da: .2, cs: 'sharp', card: '#1a0000', stroke: '#ffb703', shadow: '#ffb703', ink: '#ffffff', muted: '#ffcf99', accent: '#ff6a00', top: '#ffffff' }),
+  // fantasy
+  enchanted: TH('fantasy', 'Enchanted forest', 'ป่าต้องมนต์', { bg: ['#0b2e2a', '#1d5c4a'], deco: 'sparkles', dc: '#b8ffcf', da: .6, cs: 'double', card: 'rgba(255,255,255,0.1)', stroke: '#b8ffcf', ink: '#e8fff3', muted: '#a8d8bc', accent: '#8ef5b5', top: '#e8fff3' }),
+  dragon:   TH('fantasy', 'Dragon', 'มังกร', { bg: ['#2b0a0a', '#6b1a12'], deco: 'scales', dc: '#ffb703', da: .25, cs: 'double', card: '#1d0a08', stroke: '#ffb703', ink: '#ffe9c2', muted: '#d9b078', accent: '#ffb703', top: '#ffe9c2' }),
+  fairy:    TH('fantasy', 'Fairy', 'นางฟ้า', { bg: ['#ffd6f6', '#d6e9ff'], deco: 'sparkles', dc: '#ff7ad9', da: .5, card: 'rgba(255,255,255,0.75)', stroke: '#ffffff', ink: '#5a2a6a', muted: '#9a6aaa', accent: '#ff7ad9' }),
+  wizard:   TH('fantasy', 'Wizard', 'พ่อมด', { bg: ['#1a1040', '#3b2a8a'], deco: 'sparkles', dc: '#ffd166', da: .6, cs: 'double', card: '#f5efff', stroke: '#8b6cf0', ink: '#1a1040', muted: '#6a5a9a', accent: '#8b6cf0', top: '#f5efff' }),
+  mythic:   TH('fantasy', 'Mythic', 'ตำนาน', { bg: ['#fdf6e3', '#e8d9b5'], deco: 'diamonds', dc: '#a8803a', da: .22, cs: 'double', card: '#fffaf0', stroke: '#a8803a', ink: '#3a2a14', muted: '#8a7048', accent: '#a8803a' }),
+  crystal:  TH('fantasy', 'Crystal', 'คริสตัล', { bg: ['#5a3d99', '#2fb5d0'], deco: 'triangles', dc: '#ffffff', da: .25, card: 'rgba(255,255,255,0.2)', stroke: 'rgba(255,255,255,0.6)', ink: '#ffffff', muted: '#e8e0ff', accent: '#ffffff', top: '#ffffff' }),
+  unicorn:  TH('fantasy', 'Unicorn', 'ยูนิคอร์น', { bg: ['#ffc8f0', '#c8e0ff', '#d6ffe8'], deco: 'sparkles', dc: '#a78bfa', da: .5, card: '#ffffff', stroke: CLEAR, ink: '#4a2a6a', muted: '#9a7aba', accent: '#ff7ad9' }),
+  elven:    TH('fantasy', 'Elven', 'เอลฟ์', { bg: ['#e4f2d6', '#bcd9a0'], deco: 'leaves', dc: '#3d6b2a', da: .25, cs: 'double', card: '#fbfff3', stroke: '#6b9a4a', ink: '#243a18', muted: '#5a7a40', accent: '#6b9a4a' }),
+  castle:   TH('fantasy', 'Castle', 'ปราสาท', { bg: ['#3a3f58', '#6d7699'], deco: 'mountains', dc: '#1d2033', da: .5, card: '#f3f0e6', stroke: CLEAR, ink: '#232640', muted: '#5a5e80', accent: '#c9a43a', top: '#ffffff' }),
+  potion:   TH('fantasy', 'Potion', 'น้ำยาวิเศษ', { bg: ['#0f2a1d', '#2a1d4a'], deco: 'bubbles', dc: '#7dffb3', da: .5, card: 'rgba(255,255,255,0.08)', stroke: 'rgba(125,255,179,0.5)', ink: '#eafff3', muted: '#9fd8b8', accent: '#7dffb3', top: '#eafff3' }),
+  darkfantasy: TH('fantasy', 'Dark fantasy', 'แฟนตาซีมืด', { bg: ['#0a0a0f', '#1a1425'], deco: 'diamonds', dc: '#8b6cf0', da: .2, cs: 'double', card: '#12101a', stroke: '#6b4fd1', ink: '#e8e0ff', muted: '#9a8ac8', accent: '#8b6cf0', top: '#e8e0ff' }),
+  mermaid:  TH('fantasy', 'Mermaid', 'เงือก', { bg: ['#7fe7dc', '#b5a8ff', '#ffc2e2'], deco: 'dunes', dc: '#ffffff', da: .6, card: 'rgba(255,255,255,0.82)', stroke: 'rgba(255,255,255,0.95)', ink: '#2a2a5a', muted: '#6a6a9a', accent: '#4fd1c5', top: '#2a2a5a' }),
+  galaxy:   TH('fantasy', 'Galaxy', 'กาแล็กซี', { bg: ['#0d0b2e', '#3a1c71', '#d76d77'], deco: 'stars', dc: '#ffffff', da: .75, card: 'rgba(255,255,255,0.1)', stroke: 'rgba(255,255,255,0.3)', ink: '#ffffff', muted: '#e0d8f0', accent: '#ffd27a', top: '#ffffff' }),
+  // fiction
+  parchment: TH('fiction', 'Parchment', 'กระดาษเก่า', { bg: ['#ecd9a8', '#d8bf85'], deco: 'noise', dc: '#5a3c14', da: .18, cs: 'double', card: '#f7ebc9', stroke: '#8a6a2a', ink: '#3a2a10', muted: '#8a6a3a', accent: '#8a3b2a' }),
+  novelpage: TH('fiction', 'Novel page', 'หน้านิยาย', { bg: ['#f5f0e6'], deco: 'lines', dc: '#8a7a5a', da: .1, frame: true, fc: '#222222', cs: 'none', ink: '#1a1a1a', muted: '#6a6a6a', accent: '#8b0000' }),
+  romancenovel: TH('fiction', 'Romance novel', 'นิยายรัก', { bg: ['#fbe3e8', '#f7c6d0'], deco: 'petals', dc: '#d94f70', da: .3, cs: 'double', card: '#fffafb', stroke: '#d94f70', ink: '#4a1a2a', muted: '#9a5a6a', accent: '#d94f70' }),
+  detective: TH('fiction', 'Detective', 'นักสืบ', { bg: ['#111111', '#2b2b2b'], deco: 'lines', dc: '#ffffff', da: .06, cs: 'sharp', card: '#f2efe6', stroke: '#111111', shadow: '#b3261e', ink: '#111111', muted: '#555555', accent: '#b3261e', top: '#ffffff' }),
+  mystery:  TH('fiction', 'Mystery', 'ปริศนา', { bg: ['#1a2330', '#2f3e52'], deco: 'waves', dc: '#9fb3c8', da: .15, frame: true, fc: '#9fb3c8', cs: 'none', ink: '#e8eef5', muted: '#9fb3c8', accent: '#e0b84a' }),
+  thriller: TH('fiction', 'Thriller', 'ระทึกขวัญ', { bg: ['#0b0f14', '#16222e'], deco: 'film', dc: '#ffffff', da: .14, frame: true, fc: '#e63946', cs: 'none', ink: '#ffffff', muted: '#a8b4c0', accent: '#e63946' }),
+  horror:   TH('fiction', 'Horror', 'สยองขวัญ', { bg: ['#0a0000', '#2a0505'], deco: 'cobweb', dc: '#8a0000', da: .55, cs: 'sharp', card: '#150000', stroke: '#8a0000', shadow: '#8a0000', ink: '#f2d6d6', muted: '#b36a6a', accent: '#d00000', top: '#ffcccc' }),
+  filmnoir: TH('fiction', 'Film noir', 'ฟิล์มนัวร์', { bg: ['#000000', '#222222'], deco: 'rays', dc: '#ffffff', da: .08, card: 'rgba(255,255,255,0.06)', stroke: 'rgba(255,255,255,0.4)', ink: '#ffffff', muted: '#b0b0b0', accent: '#ffffff' }),
+  scifi:    TH('fiction', 'Sci-fi', 'ไซไฟ', { bg: ['#020617', '#0b1a3a'], deco: 'grid', dc: '#38bdf8', da: .15, card: 'rgba(56,189,248,0.07)', stroke: '#38bdf8', glow: '#38bdf8', ink: '#e0f4ff', muted: '#7ab8d8', accent: '#38bdf8', top: '#e0f4ff' }),
+  neon:     TH('fiction', 'Neon', 'นีออน', { bg: ['#0a0a1a', '#1a0f33'], deco: 'grid', dc: '#39ffb6', da: .12, card: 'rgba(255,255,255,0.05)', stroke: '#39ffb6', glow: '#39ffb6', ink: '#e9fff6', muted: '#8fe8c8', accent: '#39ffb6', top: '#e9fff6' }),
+  cyberpunk: TH('fiction', 'Cyberpunk', 'ไซเบอร์พังก์', { bg: ['#12002b', '#33004d'], deco: 'scan', dc: '#ff2bd6', da: .15, cs: 'sharp', card: '#0d0020', stroke: '#00f0ff', shadow: '#ff2bd6', ink: '#ffffff', muted: '#c9a0ff', accent: '#ff2bd6', top: '#00f0ff' }),
+  space:    TH('fiction', 'Space opera', 'อวกาศ', { bg: ['#000010', '#0b0b3b', '#2a0a4a'], deco: 'stars', dc: '#ffffff', da: .9, card: 'rgba(255,255,255,0.08)', stroke: 'rgba(125,249,255,0.4)', ink: '#ffffff', muted: '#b8c8f0', accent: '#7df9ff', top: '#ffffff' }),
+  steampunk: TH('fiction', 'Steampunk', 'สตีมพังก์', { bg: ['#3b2a1a', '#6b4a2a'], deco: 'stitch', dc: '#d4a24c', da: .8, cs: 'double', card: '#f1e2c4', stroke: '#b87333', ink: '#2f1f10', muted: '#7a5a3a', accent: '#b87333', top: '#f1e2c4' }),
+  western:  TH('fiction', 'Western', 'คาวบอย', { bg: ['#e8b378', '#c98a4a'], deco: 'mountains', dc: '#7a3e12', da: .3, cs: 'sharp', card: '#fff1d6', stroke: '#5a2d0c', shadow: '#5a2d0c', ink: '#3a1a08', muted: '#8a5a30', accent: '#b3261e' }),
+  manga:    TH('fiction', 'Manga', 'มังงะ', { bg: ['#ffffff'], deco: 'dots', dc: '#000000', da: .12, cs: 'sharp', card: '#ffffff', stroke: '#000000', shadow: '#000000', ink: '#000000', muted: '#444444', accent: '#e60023' }),
+  storybook: TH('fiction', 'Storybook', 'หนังสือนิทาน', { bg: ['#fff1c9', '#ffd89b'], deco: 'sparkles', dc: '#c0692b', da: .35, cs: 'tape', card: '#fffdf5', stroke: '#f0d9a8', ink: '#4a2a10', muted: '#9a6a40', accent: '#c0692b', tape: '#ff9aa2' })
+};
+const THEME_CATS = [['fav', '\u2605 Favorites', '\u2605 โปรด'], ['basic', 'Classic', 'คลาสสิก'], ['color', 'Colorful', 'สีสัน'], ['festival', 'Festivals', 'เทศกาล'], ['love', 'Love', 'ความรัก'], ['feel', 'Feelings', 'อารมณ์'], ['sad', 'Sad & lonely', 'เศร้าเหงา'], ['weather', 'Weather', 'สภาพอากาศ'], ['fantasy', 'Fantasy', 'แฟนตาซี'], ['fiction', 'Fiction', 'นิยาย']];
+const tn = id => THEMES[id]['n_' + lang] || THEMES[id].n_en;
+const SUGGEST = [
+  [/แฟนตาซี|\bfantasy\b/i, 'enchanted'],
+  [/พายุ|ฟ้าผ่า|ฟ้าร้อง|\bstorm|thunder/i, 'storm'], [/ฝนปรอย|drizzle/i, 'drizzle'], [/ฝน|\brain/i, 'rain'],
+  [/หิมะ|\bsnow/i, 'snow'], [/น้ำแข็ง|แช่แข็ง|\bice\b|frozen/i, 'ice'], [/ฤดูหนาว|\bwinter/i, 'winter'], [/หนาว|\bcold\b|freezing/i, 'cold'],
+  [/ทะเลทราย|desert/i, 'desert'], [/ร้อน|\bhot\b|heat|summer|ซัมเมอร์/i, 'hot'], [/แดด|\bsunny|sunshine/i, 'sunny'],
+  [/หมอก|\bfog|\bmist/i, 'fog'], [/รุ้ง|rainbow/i, 'rainbow'], [/ทะเล|ชายหาด|\bocean|\bbeach|\bsea\b/i, 'ocean'],
+  [/อกหัก|เลิกกัน|heartbreak|broken heart|ผิดหวัง/i, 'heartbreak'], [/เหงา|โดดเดี่ยว|ว้าเหว่|lonely|\balone\b/i, 'lonely'],
+  [/ร้องไห้|น้ำตา|\bcry|tears/i, 'tears'], [/เศร้า|เสียใจ|\bsad\b|sorrow/i, 'bluemood'],
+  [/คิดถึง|วันวาน|ความทรงจำ|memories|miss you|nostalg/i, 'nostalgia'],
+  [/แอบชอบ|\bcrush\b/i, 'crush'], [/วาเลนไทน์|valentine/i, 'valentine'], [/รักแรก|first love/i, 'firstlove'], [/แต่งงาน|wedding/i, 'wedding'],
+  [/รัก|แฟน|หัวใจ|\blove\b|sweetheart|darling/i, 'romance'],
+  [/วันเกิด|birthday|\bbday\b/i, 'birthday'], [/คริสต์มาส|christmas|\bxmas\b/i, 'christmas'], [/ฮาโลวีน|halloween/i, 'halloween'],
+  [/ตรุษจีน|lunar new year|chinese new year/i, 'lunar'], [/อีสเตอร์|easter/i, 'easter'], [/ดิวาลี|diwali/i, 'diwali'], [/โฮลี|\bholi\b/i, 'holi'],
+  [/รับปริญญา|จบการศึกษา|graduat/i, 'graduation'], [/ใบไม้ร่วง|autumn|\bfall\b/i, 'autumn'],
+  [/ฆาตกร|นักสืบ|detective|murder|killer/i, 'detective'], [/ผี(?!เสื้อ)|สยอง|หลอน|ghost|horror|haunt/i, 'horror'], [/ปริศนา|mystery|riddle/i, 'mystery'],
+  [/กาแล็กซี|galaxy/i, 'galaxy'], [/อวกาศ|\bspace\b|ดวงดาว/i, 'space'], [/ไซไฟ|หุ่นยนต์|robot|sci-?fi/i, 'scifi'], [/ไซเบอร์|cyber/i, 'cyberpunk'],
+  [/คาวบอย|cowboy|western/i, 'western'], [/มังงะ|อนิเมะ|manga|anime/i, 'manga'], [/นิทาน|storybook|once upon/i, 'storybook'],
+  [/พ่อมด|เวทมนตร์|\bmagic|wizard|witch/i, 'wizard'], [/มังกร|dragon/i, 'dragon'], [/นางฟ้า|fairy/i, 'fairy'], [/ยูนิคอร์น|unicorn/i, 'unicorn'],
+  [/เงือก|mermaid/i, 'mermaid'], [/ปราสาท|castle/i, 'castle'], [/เอลฟ์|\belf\b|elven/i, 'elven'], [/คริสตัล|crystal/i, 'crystal'],
+  [/ป่า(?!ว)|\bforest/i, 'enchanted'], [/ตำนาน|\bmyth|legend/i, 'mythic'],
+  [/โกรธ|เกลียด|\bangry|\banger|\brage\b/i, 'anger'], [/กังวล|เครียด|anxious|anxiety|\bstress/i, 'anxious'],
+  [/ขอบคุณ|\bthank|grateful/i, 'grateful'], [/ความหวัง|หวังว่า|\bhope\b|สู้ๆ|fighting/i, 'hope'], [/ฝันดี|ฝัน|\bdream/i, 'dreamy'],
+  [/สงบ|เงียบ|\bcalm\b|\bpeace/i, 'calm'], [/สุข|ยิ้ม|ดีใจ|\bhappy\b|\bsmile|\bjoy/i, 'happy'],
+  [/เที่ยงคืน|ดึก|midnight|\bnight\b|ราตรี/i, 'midnight'], [/พระอาทิตย์ตก|อัสดง|sunset/i, 'sunset'], [/อรุณ|sunrise|\bmorning\b/i, 'sunrise']
+];
+function suggestTheme(text) { const s = String(text || ''); for (const [re, id] of SUGGEST) if (THEMES[id] && re.test(s)) return id; return null; }
+const catName = c => (lang === 'th' ? c[2] : c[1]);
+const SHARE_FMT = { portrait: [1080, 1350], story: [1080, 1920], square: [1080, 1080] };
+let shareNote = null, shareStyle = 'paper', shareFont = 'sarabun', shareFmt = 'portrait', shareLevel = 0;
+let manualStyle = 'paper', shareAuto = true, autoApplied = false, shareFav = [];
+let themeCat = 'basic', fontCat = 'sans';
+let shareBlob = null, shareBlobPromise = null, shareDataUrl = null, shareSeq = 0, shareMeta = { fit: 100, base: 100, size: 100 };
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function drawDeco(ctx, W, H, th) {
+  const d = th.deco; if (!d) return;
+  const col = th.dc || th.accent, da = th.da == null ? 0.2 : th.da;
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  ctx.save(); ctx.fillStyle = col; ctx.strokeStyle = col; ctx.globalAlpha = da; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const line = (x1, y1, x2, y2) => { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); };
+  const dot = (x, y, r) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill(); };
+  const rays = (cx, cy, n) => { const R = Math.hypot(W, H) * 1.2; for (let i = 0; i < n; i += 2) { const a1 = (i / n) * 6.2832, a2 = ((i + 1) / n) * 6.2832; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a1) * R, cy + Math.sin(a1) * R); ctx.lineTo(cx + Math.cos(a2) * R, cy + Math.sin(a2) * R); ctx.closePath(); ctx.fill(); } };
+  const sparkle = (s) => { ctx.beginPath(); ctx.moveTo(0, -s); ctx.quadraticCurveTo(0, 0, s, 0); ctx.quadraticCurveTo(0, 0, 0, s); ctx.quadraticCurveTo(0, 0, -s, 0); ctx.quadraticCurveTo(0, 0, 0, -s); ctx.fill(); };
+  if (d === 'stars') {
+    for (let i = 0; i < 90; i++) { ctx.globalAlpha = da * (0.35 + rnd() * 0.65); dot(rnd() * W, rnd() * H, 1.5 + rnd() * 3.5); }
+  } else if (d === 'dots') {
+    for (let y = 44, r = 0; y < H + 40; y += 64, r++) for (let x = (r % 2 ? 76 : 44); x < W + 40; x += 64) dot(x, y, 5);
+  } else if (d === 'stripes') {
+    ctx.lineWidth = 30; for (let x = -H; x < W + H; x += 96) line(x, H, x + H, 0);
+  } else if (d === 'grid') {
+    ctx.lineWidth = 2; for (let x = 0; x <= W; x += 60) line(x, 0, x, H); for (let y = 0; y <= H; y += 60) line(0, y, W, y);
+  } else if (d === 'lines') {
+    ctx.lineWidth = 2; for (let y = 54; y < H; y += 54) line(0, y, W, y);
+  } else if (d === 'waves') {
+    ctx.lineWidth = 6;
+    for (let k = 0; k < 5; k++) { const y0 = H - 120 + k * 28; ctx.beginPath(); for (let x = -10; x <= W + 10; x += 10) { const y = y0 + Math.sin(x / 70 + k * 0.9) * 14; if (x === -10) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.stroke(); }
+  } else if (d === 'zigzag') {
+    ctx.lineWidth = 6; for (let y = 40; y < H + 40; y += 90) { ctx.beginPath(); for (let x = -20, i = 0; x <= W + 40; x += 40, i++) { const yy = y + (i % 2 ? 16 : -16); if (i === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy); } ctx.stroke(); }
+  } else if (d === 'confetti') {
+    const pal = th.cf || [col];
+    for (let i = 0; i < 110; i++) {
+      ctx.save(); ctx.translate(rnd() * W, rnd() * H); ctx.rotate(rnd() * 6.28); ctx.fillStyle = pal[i % pal.length];
+      if (i % 3 === 0) dot(0, 0, 8); else ctx.fillRect(-12, -5, 24, 10);
+      ctx.restore();
+    }
+  } else if (d === 'rays') {
+    rays(W / 2, H / 2, 28);
+  } else if (d === 'checker') {
+    const s = 90; for (let y = 0, r = 0; y < H; y += s, r++) for (let x = (r % 2) * s; x < W; x += s * 2) ctx.fillRect(x, y, s, s);
+  } else if (d === 'hearts') {
+    for (let y = 30, r = 0; y < H; y += 120, r++) for (let x = (r % 2 ? 90 : 30); x < W; x += 120) { ctx.save(); ctx.translate(x, y); ctx.scale(1.5, 1.5); ctx.fill(HEART_P); ctx.restore(); }
+  } else if (d === 'sparkles') {
+    for (let i = 0; i < 46; i++) { ctx.save(); ctx.translate(rnd() * W, rnd() * H); sparkle(8 + rnd() * 20); ctx.restore(); }
+  } else if (d === 'diamonds') {
+    ctx.lineWidth = 2; const s = 110;
+    for (let y = 0, r = 0; y < H + s; y += s / 2, r++) for (let x = (r % 2) * (s / 2); x < W + s; x += s) { ctx.beginPath(); ctx.moveTo(x, y - s / 4); ctx.lineTo(x + s / 4, y); ctx.lineTo(x, y + s / 4); ctx.lineTo(x - s / 4, y); ctx.closePath(); ctx.stroke(); }
+  } else if (d === 'plus') {
+    ctx.lineWidth = 5; for (let y = 50; y < H; y += 100) for (let x = 50; x < W; x += 100) { line(x - 11, y, x + 11, y); line(x, y - 11, x, y + 11); }
+  } else if (d === 'noise') {
+    for (let i = 0; i < 2600; i++) ctx.fillRect(rnd() * W, rnd() * H, 2, 2);
+  } else if (d === 'triangles') {
+    for (let y = 40, r = 0; y < H; y += 100, r++) for (let x = (r % 2 ? 70 : 20); x < W; x += 100) { ctx.beginPath(); ctx.moveTo(x, y + 30); ctx.lineTo(x + 18, y); ctx.lineTo(x + 36, y + 30); ctx.closePath(); ctx.fill(); }
+  } else if (d === 'stitch') {
+    ctx.lineWidth = 5; ctx.setLineDash([22, 16]); roundRect(ctx, 40, 40, W - 80, H - 80, 30); ctx.stroke();
+  } else if (d === 'scan') {
+    ctx.lineWidth = 2; for (let y = 0; y < H; y += 7) line(0, y, W, y);
+  } else if (d === 'snow') {
+    for (let i = 0; i < 130; i++) { ctx.globalAlpha = da * (0.5 + rnd() * 0.5); dot(rnd() * W, rnd() * H, 2 + rnd() * 5); }
+  } else if (d === 'snowflakes') {
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 26; i++) { const s = 10 + rnd() * 18; ctx.save(); ctx.translate(rnd() * W, rnd() * H); for (let k = 0; k < 6; k++) { ctx.rotate(Math.PI / 3); line(0, 0, 0, s); line(0, s * 0.55, s * 0.28, s * 0.8); line(0, s * 0.55, -s * 0.28, s * 0.8); } ctx.restore(); }
+  } else if (d === 'rain') {
+    ctx.lineWidth = 3; for (let i = 0; i < 150; i++) { const x = rnd() * W, y = rnd() * H; ctx.globalAlpha = da * (0.5 + rnd() * 0.5); line(x, y, x - 9, y + 28); }
+  } else if (d === 'bunting') {
+    const pal = th.cf || [col], y0 = 14, sag = 20, n = Math.round(W / 70);
+    const bx = t => -10 * (1 - t) * (1 - t) + 2 * (1 - t) * t * (W / 2) + (W + 10) * t * t;
+    const by = t => y0 * (1 - t) * (1 - t) + 2 * (1 - t) * t * (y0 + sag * 2) + y0 * t * t;
+    ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(bx(0), by(0)); for (let i = 1; i <= 40; i++) ctx.lineTo(bx(i / 40), by(i / 40)); ctx.stroke();
+    for (let i = 0; i < n; i++) { const t = (i + 0.5) / n, x = bx(t), y = by(t); ctx.fillStyle = pal[i % pal.length]; ctx.beginPath(); ctx.moveTo(x - 20, y); ctx.lineTo(x + 20, y); ctx.lineTo(x, y + 40); ctx.closePath(); ctx.fill(); }
+  } else if (d === 'dunes') {
+    const L = th.dl || 3;
+    for (let l = 0; l < L; l++) {
+      ctx.globalAlpha = da * (0.5 + l * 0.3); const base = H - 40 - (L - 1 - l) * 40;
+      ctx.beginPath(); ctx.moveTo(0, H);
+      for (let x = 0; x <= W; x += 10) ctx.lineTo(x, base - 18 - Math.sin(x / (180 + l * 40) + l * 1.7) * 22 - Math.sin(x / 90 + l) * 6);
+      ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+    }
+  } else if (d === 'petals') {
+    for (let i = 0; i < 40; i++) { ctx.save(); ctx.translate(rnd() * W, rnd() * H); ctx.rotate(rnd() * 6.28); ctx.beginPath(); ctx.ellipse(0, 0, 16, 8, 0, 0, 6.2832); ctx.fill(); ctx.restore(); }
+  } else if (d === 'leaves') {
+    for (let i = 0; i < 30; i++) { const s = 18 + rnd() * 16; ctx.save(); ctx.translate(rnd() * W, rnd() * H); ctx.rotate(rnd() * 6.28); ctx.beginPath(); ctx.moveTo(0, -s); ctx.quadraticCurveTo(s * 0.8, 0, 0, s); ctx.quadraticCurveTo(-s * 0.8, 0, 0, -s); ctx.fill(); ctx.restore(); }
+  } else if (d === 'lightning') {
+    ctx.lineWidth = 5;
+    for (let i = 0; i < 7; i++) { let x = rnd() * W, y = -10; const len = H * (0.18 + rnd() * 0.3); ctx.beginPath(); ctx.moveTo(x, y); while (y < len) { y += 40 + rnd() * 50; x += (rnd() - 0.5) * 90; ctx.lineTo(x, y); } ctx.stroke(); }
+  } else if (d === 'mountains') {
+    for (let l = 0; l < 3; l++) {
+      ctx.globalAlpha = da * (0.5 + l * 0.25); const base = H - 40 - (2 - l) * 50; let x = 0;
+      ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(0, base);
+      while (x < W) { x += 70 + rnd() * 80; ctx.lineTo(x, base - 60 - rnd() * (100 + (2 - l) * 40)); x += 70 + rnd() * 80; ctx.lineTo(x, base - rnd() * 20); }
+      ctx.lineTo(W + 10, H); ctx.closePath(); ctx.fill();
+    }
+  } else if (d === 'film') {
+    for (let y = 14; y < H; y += 56) { roundRect(ctx, 14, y, 24, 32, 6); ctx.fill(); roundRect(ctx, W - 38, y, 24, 32, 6); ctx.fill(); }
+  } else if (d === 'crescent') {
+    const r = Math.min(W, H) * (th.cr || 0.13), cx = W * 0.8, cy = H * 0.115, oc = document.createElement('canvas');
+    oc.width = oc.height = Math.ceil(r * 2 + 4); const o = oc.getContext('2d');
+    o.fillStyle = col; o.beginPath(); o.arc(r + 2, r + 2, r, 0, 6.2832); o.fill();
+    o.globalCompositeOperation = 'destination-out'; o.beginPath(); o.arc(r + 2 + r * 0.42, r + 2 - r * 0.1, r * 0.82, 0, 6.2832); o.fill();
+    ctx.drawImage(oc, cx - r, cy - r);
+    for (let i = 0; i < (th.sp != null ? th.sp : 22); i++) { ctx.save(); ctx.translate(rnd() * W, rnd() * H * 0.25); sparkle(5 + rnd() * 9); ctx.restore(); }
+  } else if (d === 'cobweb') {
+    const web = (x0, y0, sx, sy) => {
+      ctx.lineWidth = 2; const R = 300;
+      for (let k = 0; k <= 5; k++) { const a = (k / 5) * Math.PI / 2; line(x0, y0, x0 + sx * Math.cos(a) * R, y0 + sy * Math.sin(a) * R); }
+      for (let r = 60; r <= R; r += 60) { ctx.beginPath(); for (let k = 0; k <= 5; k++) { const a = (k / 5) * Math.PI / 2, px = x0 + sx * Math.cos(a) * r, py = y0 + sy * Math.sin(a) * r; if (k === 0) ctx.moveTo(px, py); else ctx.quadraticCurveTo(x0 + sx * Math.cos(a - Math.PI / 10) * r * 0.85, y0 + sy * Math.sin(a - Math.PI / 10) * r * 0.85, px, py); } ctx.stroke(); }
+    };
+    web(0, 0, 1, 1); web(W, 0, -1, 1);
+  } else if (d === 'scales') {
+    ctx.lineWidth = 3; const s = 44;
+    for (let y = 0, r = 0; y < H + s; y += s / 2, r++) for (let x = (r % 2) * (s / 2); x < W + s; x += s) { ctx.beginPath(); ctx.arc(x, y, s / 2, 0, Math.PI); ctx.stroke(); }
+  } else if (d === 'bubbles') {
+    ctx.lineWidth = 3; for (let i = 0; i < 40; i++) { ctx.globalAlpha = da * (0.5 + rnd() * 0.5); ctx.beginPath(); ctx.arc(rnd() * W, rnd() * H, 6 + rnd() * 22, 0, 6.2832); ctx.stroke(); }
+  } else if (d === 'embers') {
+    for (let i = 0; i < 170; i++) { ctx.globalAlpha = da * (0.4 + rnd() * 0.6); dot(rnd() * W, H * (1 - Math.pow(rnd(), 2.2)), 1.2 + rnd() * 3.2); }
+  }
+  ctx.restore();
+}
+function drawCard(ctx, th, x, y, w, h) {
+  const cs = th.cs;
+  if (cs === 'none') return;
+  if (cs === 'sharp') {
+    ctx.fillStyle = th.shadow || th.stroke; roundRect(ctx, x + 18, y + 18, w, h, 10); ctx.fill();
+    ctx.fillStyle = th.card; roundRect(ctx, x, y, w, h, 10); ctx.fill();
+    ctx.lineWidth = 8; ctx.strokeStyle = th.stroke; roundRect(ctx, x, y, w, h, 10); ctx.stroke();
+    return;
+  }
+  const glass = /^rgba/.test(th.card);
+  ctx.save();
+  if (!glass) { ctx.shadowColor = 'rgba(0,0,0,0.2)'; ctx.shadowBlur = 54; ctx.shadowOffsetY = 20; }
+  ctx.fillStyle = th.card; roundRect(ctx, x, y, w, h, 56); ctx.fill();
+  ctx.restore();
+  ctx.save(); ctx.lineWidth = 3; ctx.strokeStyle = th.stroke;
+  if (th.glow) { ctx.shadowColor = th.glow; ctx.shadowBlur = 36; ctx.lineWidth = 4; }
+  roundRect(ctx, x, y, w, h, 56); ctx.stroke(); ctx.restore();
+  if (cs === 'double') { ctx.save(); ctx.lineWidth = 3; ctx.strokeStyle = th.accent; roundRect(ctx, x + 24, y + 24, w - 48, h - 48, 36); ctx.stroke(); ctx.restore(); }
+  if (cs === 'tape') { ctx.save(); ctx.translate(x + w / 2, y); ctx.rotate(-0.03); ctx.globalAlpha = 0.9; ctx.fillStyle = th.tape || th.accent; ctx.fillRect(-130, -34, 260, 68); ctx.restore(); }
+}
+// Every text is drawn left-aligned at a computed x (never relying on ctx.textAlign, which some browsers ignore)
+function drawBrand(ctx, th, font, cx, cw, y) {
+  ctx.textAlign = 'left'; ctx.font = '700 54px ' + font;
+  const label = 'Dropnote', tw = ctx.measureText(label).width, iw = 30, ih = 37, gap = 16, total = iw + gap + tw;
+  const x0 = cx + (cw - total) / 2;
+  ctx.save(); ctx.translate(x0, y + 2); ctx.scale(iw / 26, ih / 32); ctx.fillStyle = th.accent; ctx.fill(DROP); ctx.restore();
+  ctx.fillStyle = th.top || th.ink; ctx.textBaseline = 'middle';
+  ctx.fillText(label, x0 + iw + gap, y + ih / 2 + 2);
+  ctx.textBaseline = 'alphabetic';
+}
+function fillCentered(ctx, str, cx, y) {
+  ctx.textAlign = 'left';
+  const s = String(str).trim();
+  ctx.fillText(s, cx - ctx.measureText(s).width / 2, y);
+}
+
+function drawShare(m) {
+  const th = THEMES[shareStyle], f = FONTS[shareFont], [W, H] = SHARE_FMT[shareFmt];
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d'), font = f.stack;
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  th.bg.forEach((col, i) => g.addColorStop(th.bg.length === 1 ? 0 : i / (th.bg.length - 1), col));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  drawDeco(ctx, W, H, th);
+  if (th.frame) { ctx.save(); ctx.globalAlpha = 0.85; ctx.lineWidth = 4; ctx.strokeStyle = th.fc || th.ink; ctx.strokeRect(36, 36, W - 72, H - 72); ctx.restore(); }
+
+  // layout: equal side margins, equal inner padding on every side of the card, everything centred
+  const [padTop, padBot] = { portrait: [96, 100], story: [250, 290], square: [76, 76] }[shareFmt];
+  const M = 84, P = 84, brandH = 56;
+  const cx = M, cw = W - 2 * M, cardTop = padTop + brandH + 44, cardBot = H - padBot;
+  const iw = cw - 2 * P, ax = cx + cw / 2;
+  drawBrand(ctx, th, font, cx, cw, padTop);
+  drawCard(ctx, th, cx, cardTop, cw, cardBot - cardTop);
+
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  const qH = 0;
+
+  // text area = whatever is left between quote mark and author
+  const authorH = 84, gapQ = 0, gapA = 34;
+  const areaTop = cardTop + P + qH + gapQ, areaBot = cardBot - P - authorH - gapA, areaH = Math.max(80, areaBot - areaTop);
+  const LH = f.lh, text = m.text;
+  const fits = s => { ctx.font = '400 ' + s + 'px ' + font; return wrapLines(ctx, text, iw).length * s * LH <= areaH; };
+  let fit;
+  if (!fits(24)) fit = 24; else if (fits(230)) fit = 230;
+  else { let lo = 24, hi = 230; while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (fits(mid)) lo = mid; else hi = mid; } fit = lo; }
+  const base = Math.min(fit, 170);
+  const sizeFor = l => Math.max(24, Math.min(fit, base * (1 + 0.1 * l)));
+  let lvl = shareLevel;
+  while (lvl > 0 && sizeFor(lvl - 1) >= fit) lvl--;
+  while (lvl < 0 && base * (1 + 0.1 * (lvl + 1)) <= 24) lvl++;
+  shareLevel = lvl;
+  const size = sizeFor(lvl);
+  shareMeta = { fit, base, size };
+  ctx.font = '400 ' + size + 'px ' + font;
+  const lines = wrapBalanced(ctx, text, iw), lh = size * LH;
+  const mt = ctx.measureText('\u0E01\u0E46\u0E49Ag');
+  const asc = mt.fontBoundingBoxAscent != null ? mt.fontBoundingBoxAscent : size * 0.9;
+  const dsc = mt.fontBoundingBoxDescent != null ? mt.fontBoundingBoxDescent : size * 0.25;
+  let y = areaTop + (areaH - lines.length * lh) / 2 + (lh - (asc + dsc)) / 2 + asc;
+  ctx.fillStyle = th.ink;
+  lines.forEach(l => { fillCentered(ctx, l, ax, y); y += lh; });
+
+  // author
+  const barW = 90, barTop = cardBot - P - authorH + 4;
+  ctx.fillStyle = th.accent; roundRect(ctx, ax - barW / 2, barTop, barW, 10, 5); ctx.fill();
+  ctx.font = '400 40px ' + font; ctx.fillStyle = th.muted;
+  fillCentered(ctx, m.name || t('anon'), ax, cardBot - P - 8);
+
+  return c;
+}
+
+function setShMsg(text, ok) { const o = $('shMsg'); o.textContent = text || ''; o.className = 'msg' + (text ? (ok ? ' ok' : ' err') : ''); }
+function persistShare() { me.sh = { style: manualStyle, font: shareFont, fmt: shareFmt, level: shareLevel, auto: shareAuto, fav: shareFav }; saveMe(); }
+function updateCtrls() {
+  const th = THEMES[shareStyle], f = FONTS[shareFont];
+  const cd = $('cdTheme'); cd.style.setProperty('--a', th.bg[0]); cd.style.setProperty('--b', th.bg[th.bg.length - 1]); cd.style.setProperty('--c', th.accent);
+  $('cvTheme').textContent = tn(shareStyle);
+  $('cdFont').style.fontFamily = f.stack; $('cvFont').textContent = f.name;
+  const sz = { portrait: [14, 18], story: [11, 20], square: [16, 16] }[shareFmt];
+  $('cdSize').innerHTML = '<i class="shape" style="width:' + sz[0] + 'px;height:' + sz[1] + 'px"></i>';
+  $('cvSize').textContent = { portrait: '4:5', story: '9:16', square: '1:1' }[shareFmt];
+  $('ctrlTheme').querySelector('small').textContent = autoApplied ? t('ctlTheme') + ' \u00B7 ' + t('suggested') : t('ctlTheme');
+  $('autoToggle').setAttribute('aria-pressed', shareAuto);
+}
+function updateSize() {
+  $('szVal').hidden = shareLevel === 0;
+  $('szUp').disabled = shareMeta.size >= shareMeta.fit - 0.5;
+  $('szDown').disabled = shareMeta.size <= 24.5;
+}
+function closePans(except) {
+  ['Theme', 'Font', 'Size'].forEach(n => {
+    const open = n === except && !$('pan' + n).classList.contains('open');
+    $('pan' + n).classList.toggle('open', open); $('ctrl' + n).setAttribute('aria-expanded', open);
+  });
+  if (except === 'Font') loadAllFontCss();
+}
+async function ensureFont() {
+  const f = FONTS[shareFont], fams = [f.fam, ...f.fbf];
+  await Promise.all(fams.map(fontCss));
+  if (!document.fonts || !document.fonts.load) return;
+  const sample = String((shareNote && shareNote.text) || '').slice(0, 300) + 'Dropnote';
+  try { await Promise.race([Promise.all(fams.map(fm => document.fonts.load('400 48px "' + fm + '"', sample))), sleep(3000)]); } catch {}
+}
+function paintShare(seq) {
+  const c = drawShare(shareNote);
+  shareBlob = null;
+  shareDataUrl = c.toDataURL('image/png');
+  const im = $('shareImg'); im.src = shareDataUrl;
+  im.classList.remove('swap'); void im.offsetWidth; im.classList.add('swap');
+  shareBlobPromise = new Promise(resolve => {
+    try {
+      c.toBlob(b => {
+        if (seq === shareSeq) shareBlob = b || null;
+        resolve(shareBlob);
+      }, 'image/png');
+    } catch {
+      resolve(null);
+    }
+  });
+  updateSize();
+  return shareBlobPromise;
+}
+async function renderShare() {
+  const seq = ++shareSeq;
+  updateCtrls(); setShMsg('');
+  await paintShare(seq);
+  const f = FONTS[shareFont];
+  if (!fontOk[f.fam]) {
+    await ensureFont(); fontOk[f.fam] = true;
+    if (seq !== shareSeq) return;
+    await paintShare(seq);
+  }
+}
+function getBlob() {
+  if (shareBlob) return Promise.resolve(shareBlob);
+  if (shareBlobPromise) return shareBlobPromise.then(b => b || null);
+  return new Promise(res => {
+    try { drawShare(shareNote).toBlob(b => res(b || null), 'image/png'); }
+    catch { res(null); }
+  });
+}
+function toggleFav(id) {
+  const on = !shareFav.includes(id);
+  shareFav = on ? [...shareFav, id] : shareFav.filter(x => x !== id);
+  persistShare(); haptic(14); buildThemes();
+  setShMsg(t(on ? 'favAdded' : 'favRemoved'), true); setTimeout(() => setShMsg(''), 1600);
+}
+function swatch(group, id, on) {
+  const th = THEMES[id];
+  const l = el('label', 'sw');
+  const i = document.createElement('input'); i.type = 'radio'; i.name = 'ss'; i.value = id; i.checked = on;
+  i.setAttribute('aria-label', tn(id));
+  const d = el('span', 'dot');
+  d.style.setProperty('--a', th.bg[0]); d.style.setProperty('--b', th.bg[th.bg.length - 1]); d.style.setProperty('--c', th.accent);
+  d.style.setProperty('--k', th.cs === 'none' ? 'transparent' : (th.card || 'transparent')); d.style.setProperty('--kb', th.cs === 'none' ? th.ink : (th.stroke || 'transparent'));
+  l.append(i, d, el('small', 'swn', tn(id)));
+  if (shareFav.includes(id)) l.append(el('span', 'favmark', '\u2605'));
+  // press and hold to add / remove a favourite; a normal tap only picks the theme
+  let timer = 0, sx = 0, sy = 0, held = false;
+  const cancel = () => { clearTimeout(timer); l.classList.remove('holding'); };
+  l.addEventListener('pointerdown', e => {
+    held = false; sx = e.clientX; sy = e.clientY; l.classList.add('holding');
+    timer = setTimeout(() => { held = true; l.classList.remove('holding'); toggleFav(id); }, 550);
+  });
+  l.addEventListener('pointermove', e => { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 10) cancel(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => l.addEventListener(ev, cancel));
+  l.addEventListener('click', e => { if (held) { e.preventDefault(); e.stopPropagation(); held = false; } }, true);
+  l.addEventListener('contextmenu', e => e.preventDefault());
+  group.append(l); return i;
+}
+function fontOpt(group, id, on) {
+  const f = FONTS[id];
+  const l = el('label', 'fo');
+  const i = document.createElement('input'); i.type = 'radio'; i.name = 'sfont'; i.value = id; i.checked = on; i.setAttribute('aria-label', f.name);
+  const box = el('span', 'box'), b = el('b', null, f.en ? 'Aa Hello' : '\u0E01\u0E02\u0E04 Aa'); b.style.fontFamily = f.stack;
+  box.append(b, el('small', null, f.name));
+  l.append(i, box); group.append(l); return i;
+}
+function buildCats(box, list, cur, pick) {
+  box.textContent = '';
+  list.forEach(c => {
+    const b = el('button', 'catb', catName(c)); b.type = 'button'; b.setAttribute('aria-pressed', c[0] === cur);
+    b.onclick = () => pick(c[0]); box.append(b);
+  });
+  const on = box.querySelector('[aria-pressed="true"]'); if (on) setTimeout(() => { try { box.scrollLeft = Math.max(0, on.offsetLeft - 24); } catch {} }, 0);
+}
+function afterPick() { persistShare(); renderShare(); setTimeout(() => closePans(), 260); }
+function pickTheme(id) { shareStyle = id; manualStyle = id; autoApplied = false; afterPick(); }
+function buildThemes() {
+  buildCats($('themeCats'), THEME_CATS, themeCat, c => { themeCat = c; buildThemes(); });
+  const box = $('shStyle'); box.textContent = '';
+  const ids = themeCat === 'fav' ? shareFav.filter(id => THEMES[id]) : Object.keys(THEMES).filter(id => THEMES[id].cat === themeCat);
+  if (!ids.length) { box.append(el('p', 'hint favhint', t('favHint'))); return; }
+  ids.forEach(id => { const i = swatch(box, id, id === shareStyle); i.onchange = () => pickTheme(id); });
+}
+function buildFonts() {
+  buildCats($('fontCats'), FONT_CATS, fontCat, c => { fontCat = c; buildFonts(); if (c === 'en') loadAllFontCss(); });
+  const box = $('shFont'); box.textContent = '';
+  Object.keys(FONTS).filter(id => FONTS[id].cat === fontCat).forEach(id => {
+    const i = fontOpt(box, id, id === shareFont); i.onchange = () => { shareFont = id; afterPick(); };
+  });
+}
+function openShare(m) {
+  shareNote = m;
+  const sug = shareAuto ? suggestTheme(m.text) : null;
+  autoApplied = !!sug; shareStyle = sug || manualStyle;
+  themeCat = THEMES[shareStyle].cat; fontCat = FONTS[shareFont].cat;
+  buildThemes(); buildFonts();
+  const fb = $('shFmt'); fb.textContent = '';
+  Object.keys(SHARE_FMT).forEach(id => { const i = radioChip(fb, 'sf', id, t('fmt_' + id), id === shareFmt); i.onchange = () => { shareFmt = id; afterPick(); }; });
+  closePans(); renderShare();
+  $('shareDlg').showModal();
+}
+$('ctrlTheme').onclick = () => closePans('Theme');
+$('ctrlFont').onclick = () => closePans('Font');
+$('ctrlSize').onclick = () => closePans('Size');
+$('szDown').onclick = () => { shareLevel = Math.max(-6, shareLevel - 1); persistShare(); renderShare(); };
+$('szUp').onclick = () => { shareLevel = Math.min(8, shareLevel + 1); persistShare(); renderShare(); };
+$('szVal').onclick = () => { shareLevel = 0; persistShare(); renderShare(); };
+$('autoToggle').onclick = () => {
+  shareAuto = !shareAuto;
+  const sug = shareAuto ? suggestTheme(shareNote.text) : null;
+  autoApplied = !!sug; shareStyle = sug || manualStyle;
+  persistShare(); buildThemes(); renderShare();
+};
+$('ctrlShuffle').onclick = () => {
+  const ts = Object.keys(THEMES).filter(i => i !== shareStyle), fs = Object.keys(FONTS).filter(i => !FONTS[i].en && i !== shareFont);
+  shareStyle = manualStyle = ts[(Math.random() * ts.length) | 0]; shareFont = fs[(Math.random() * fs.length) | 0]; autoApplied = false;
+  themeCat = THEMES[shareStyle].cat; fontCat = FONTS[shareFont].cat; buildThemes(); buildFonts();
+  const d = $('cdShuf'); d.classList.remove('spin'); void d.offsetWidth; d.classList.add('spin'); haptic(10);
+  closePans(); persistShare(); renderShare();
+};
+$('shareClose').onclick = () => $('shareDlg').close();
+
+// Share: opens a sheet to choose where to send the card
+const PLATS = [
+  { id: 'instagram', url: 'instagram://app', icon: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r=".6" fill="currentColor"/></svg>' },
+  { id: 'tiktok', url: 'tiktok://', icon: '<svg viewBox="0 0 24 24"><path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M14 3c.3 2.6 2 4.4 5 4.6"/></svg>' },
+  { id: 'facebook', url: 'fb://', text: 'f' },
+  { id: 'line', url: 'line://', text: 'LINE' },
+  { id: 'x', url: 'twitter://', text: '\uD835\uDD4F' },
+  { id: 'copy', icon: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"/></svg>' },
+  { id: 'more', icon: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/></svg>' }
+];
+function setPlatMsg(text, ok) { const o = $('platMsg'); o.textContent = text || ''; o.className = 'msg' + (text ? (ok ? ' ok' : ' err') : ''); }
+
+async function ensureBlob() {
+  if (shareBlob && shareBlob.size > 0) return shareBlob;
+  if (shareBlobPromise) {
+    try {
+      const b = await Promise.race([shareBlobPromise, sleep(2500).then(() => null)]);
+      if (b && b.size > 0) { shareBlob = b; return b; }
+    } catch {}
+  }
+  try {
+    const b = await getBlob();
+    if (b && b.size > 0) { shareBlob = b; return b; }
+  } catch {}
+  if (shareDataUrl) {
+    try {
+      const res = await fetch(shareDataUrl);
+      const fb = await res.blob();
+      if (fb && fb.size > 0) { shareBlob = fb; return fb; }
+    } catch {}
+  }
+  // rebuild from canvas immediately
+  try {
+    const c = drawShare(shareNote);
+    shareDataUrl = c.toDataURL('image/png');
+    const b = await new Promise(r => { try { c.toBlob(x => r(x || null), 'image/png'); } catch { r(null); } });
+    if (b && b.size > 0) { shareBlob = b; return b; }
+  } catch {}
+  return null;
+}
+
+async function copyImage() {
+  try {
+    const blob = await ensureBlob();
+    if (!blob) return false;
+    if (navigator.clipboard && window.ClipboardItem) {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+function forceDownload(href) {
+  try {
+    const a = document.createElement('a');
+    a.href = href;
+    a.download = 'dropnote-' + Date.now() + '.png';
+    a.target = '_self';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { try { a.remove(); } catch {} }, 1500);
+    return true;
+  } catch { return false; }
+}
+
+async function downloadImage(blob) {
+  // Always try data URL first — most reliable across mobile browsers
+  let dataUrl = shareDataUrl;
+  if (!dataUrl && blob) {
+    try {
+      dataUrl = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(blob);
+      });
+    } catch {}
+  }
+  if (!dataUrl && shareNote) {
+    try {
+      const c = drawShare(shareNote);
+      dataUrl = c.toDataURL('image/png');
+      shareDataUrl = dataUrl;
+    } catch {}
+  }
+
+  // 1) Host API
+  try {
+    if (blob && window.claude && typeof window.claude.use === 'function') {
+      const dl = await window.claude.use('downloads');
+      if (dl) {
+        try { await dl.save({ filename: 'dropnote.png', data: blob }); }
+        catch (e) { if (!(e && e.code === 'declined')) throw e; }
+        return true;
+      }
+    }
+  } catch {}
+
+  // 2) Data URL download (best for mobile Chrome / Safari outside strict WebViews)
+  if (dataUrl && forceDownload(dataUrl)) return true;
+
+  // 3) Blob object URL
+  if (blob) {
+    try {
+      const url = URL.createObjectURL(blob);
+      const ok = forceDownload(url);
+      setTimeout(() => { try { URL.revokeObjectURL(url); } catch {} }, 30000);
+      if (ok) return true;
+    } catch {}
+  }
+
+  // 4) Guaranteed path: full-screen image for long-press save
+  if (dataUrl) {
+    showSaveOverlay(dataUrl);
+    return true;
+  }
+  return false;
+}
+
+function showSaveOverlay(url) {
+  let ov = document.getElementById('saveOverlay');
+  if (ov) ov.remove();
+  ov = document.createElement('div');
+  ov.id = 'saveOverlay';
+  ov.setAttribute('role', 'dialog');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:14px;-webkit-overflow-scrolling:touch;';
+
+  const img = document.createElement('img');
+  img.src = url;
+  img.alt = 'Dropnote';
+  img.style.cssText = 'max-width:min(92vw,420px);max-height:65vh;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.55);-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto;touch-action:manipulation;';
+
+  const hint = document.createElement('p');
+  hint.textContent = lang === 'th' ? 'กดค้างที่รูป → บันทึกรูปภาพ' : 'Long-press image → Save Image';
+  hint.style.cssText = 'color:#fff;font-size:17px;font-weight:600;margin:0;text-align:center;';
+
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;justify-content:center;';
+
+  const dlBtn = document.createElement('a');
+  dlBtn.href = url;
+  dlBtn.download = 'dropnote.png';
+  dlBtn.textContent = lang === 'th' ? 'ดาวน์โหลด' : 'Download';
+  dlBtn.style.cssText = 'background:var(--amber,#f0b04a);color:#1a1612;border:0;border-radius:999px;padding:12px 22px;font-size:16px;font-weight:700;text-decoration:none;';
+
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.textContent = lang === 'th' ? 'ปิด' : 'Close';
+  close.style.cssText = 'background:#fff;color:#111;border:0;border-radius:999px;padding:12px 22px;font-size:16px;font-weight:700;cursor:pointer;';
+  close.onclick = () => ov.remove();
+
+  row.append(dlBtn, close);
+  ov.append(img, hint, row);
+  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+  document.body.appendChild(ov);
+  try { haptic(10); } catch {}
+}
+
+async function shareNative(blob) {
+  if (!blob) return false;
+  try {
+    const file = new File([blob], 'dropnote.png', { type: 'image/png' });
+    if (typeof navigator.share === 'function') {
+      const can = !navigator.canShare || navigator.canShare({ files: [file] });
+      if (can) {
+        await navigator.share({ files: [file], title: 'Dropnote' });
+        return true;
+      }
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return true;
+  }
+  return false;
+}
+
+async function sharePlat(p) {
+  setPlatMsg('');
+  const blob = await ensureBlob();
+  if (p.id === 'more') {
+    if (await shareNative(blob)) return;
+    if (await copyImage()) { setPlatMsg(t('copied'), true); return; }
+    if (blob && await downloadImage(blob)) { setPlatMsg(t('saveSent'), true); return; }
+    setPlatMsg(t('shareFail')); return;
+  }
+  if (p.id === 'copy') {
+    if (await copyImage()) { setPlatMsg(t('copied'), true); return; }
+    if (blob && await downloadImage(blob)) setPlatMsg(t('saveSent'), true); else setPlatMsg(t('shareFail'));
+    return;
+  }
+  const name = t('plat_' + p.id);
+  let copied = await copyImage();
+  if (!copied && blob) await downloadImage(blob);
+  setPlatMsg(copied ? t('platOpening', name) : t('platNoCopy', name), true);
+  setTimeout(() => { try { window.location.href = p.url; } catch {} }, 650);
+}
+
+function openPlats() {
+  const box = $('plats'); box.textContent = ''; setPlatMsg('');
+  PLATS.forEach((p, i) => {
+    const b = el('button', 'plat'); b.type = 'button'; b.style.animationDelay = (0.1 + i * 0.045) + 's';
+    const tile = el('span', 'tile t-' + p.id);
+    if (p.icon) tile.innerHTML = p.icon; else tile.textContent = p.text;
+    b.append(tile, el('span', null, t('plat_' + p.id)));
+    b.onclick = () => sharePlat(p);
+    box.append(b);
+  });
+  $('platDlg').showModal();
+}
+
+let shareBusy = false;
+
+$('shareGo').onclick = async () => {
+  if (shareBusy) return;
+  shareBusy = true;
+  setShMsg('');
+  const btn = $('shareGo');
+  btn.classList.add('busy');
+  try {
+    const blob = await ensureBlob();
+    if (!blob) {
+      // still try data URL path
+      if (shareDataUrl) { showSaveOverlay(shareDataUrl); setShMsg(t('saveSent'), true); return; }
+      setShMsg(t('shareFail')); return;
+    }
+    if (await shareNative(blob)) { setShMsg(t('saveSent'), true); return; }
+    openPlats();
+  } catch (e) {
+    console.error(e);
+    setShMsg(t('shareFail'));
+  } finally {
+    btn.classList.remove('busy');
+    shareBusy = false;
+  }
+};
+
+$('platClose').onclick = () => $('platDlg').close();
+
+$('shareSave').onclick = async () => {
+  if (shareBusy) return;
+  shareBusy = true;
+  setShMsg('');
+  const btn = $('shareSave');
+  btn.classList.add('busy');
+  try {
+    // Ensure we have something to save
+    let blob = await ensureBlob();
+    if (!blob && !shareDataUrl && shareNote) {
+      try {
+        const c = drawShare(shareNote);
+        shareDataUrl = c.toDataURL('image/png');
+        blob = await new Promise(r => { try { c.toBlob(x => r(x || null), 'image/png'); } catch { r(null); } });
+        if (blob) shareBlob = blob;
+      } catch (e) { console.error(e); }
+    }
+
+    // 1) Native share sheet (iOS/Android → user can Save Image)
+    if (blob && await shareNative(blob)) {
+      setShMsg(t('saveSent'), true);
+      return;
+    }
+
+    // 2) Direct download attempts
+    if (await downloadImage(blob)) {
+      setShMsg(t('saveSent'), true);
+      return;
+    }
+
+    // 3) Always show overlay so user can long-press — this ALWAYS works
+    const url = shareDataUrl || (blob ? URL.createObjectURL(blob) : null);
+    if (url) {
+      showSaveOverlay(url);
+      setShMsg(lang === 'th' ? 'กดค้างที่รูปเพื่อบันทึก' : 'Long-press to save', true);
+      return;
+    }
+    setShMsg(t('shareFail'));
+  } catch (e) {
+    console.error(e);
+    setShMsg(t('shareFail'));
+  } finally {
+    btn.classList.remove('busy');
+    shareBusy = false;
+  }
+};
+
+// ---------- controls ----------
+function radioChip(group, name, id, text, checked) {
+  const l = el('label', 'pick');
+  const i = document.createElement('input'); i.type = 'radio'; i.name = name; i.value = id; i.checked = checked;
+  l.append(i, el('span', null, text)); group.append(l); return i;
+}
+const checked = name => (document.querySelector('input[name="' + name + '"]:checked') || {}).value;
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i]').forEach(e => { e.textContent = t(e.dataset.i); });
+  document.querySelectorAll('[data-ph]').forEach(e => { e.placeholder = t(e.dataset.ph); });
+  document.querySelectorAll('[data-aria]').forEach(e => { e.setAttribute('aria-label', t(e.dataset.aria)); });
+  document.querySelectorAll('[data-alt]').forEach(e => { e.alt = t(e.dataset.alt); });
+  document.querySelectorAll('.lang button').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === lang));
+  $('rand').textContent = picked ? t('randAgain') : t('randBtn');
+  if (!$('send').classList.contains('done') && $('sendLbl')) $('sendLbl').textContent = t('sendBtn');
+  if (current) renderNote(current, false); else setEmpty(emptyKey);
+  /* demo banner removed — no longer shown */
+  const v = (document.querySelector('.view.on') || {}).id;
+  if (v === 'v-home') renderHome();
+  if (v === 'v-me') renderMe();
+  if (me.theme) applyTheme(me.theme);
+}
+document.querySelectorAll('.lang button').forEach(b => b.onclick = async () => {
+  lang = b.dataset.lang; me.lang = lang; applyLang(); await saveMe();
+});
+
+// tap outside a dialog to close it
+document.querySelectorAll('dialog').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
+
+async function showView(v) {
+  document.querySelectorAll('nav button').forEach(x => { if (x.dataset.v === v) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current'); });
+  const wrap = document.querySelector('.wrap');
+  if (wrap) {
+    wrap.classList.remove('switch-in');
+    wrap.classList.add('switching');
+  }
+  document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
+  try { window.scrollTo(0, 0); } catch {}
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (wrap) {
+      wrap.classList.remove('switching');
+      wrap.classList.add('switch-in');
+    }
+  }));
+  if (v === 'me') { renderMe(); await loadAll(true); renderMe(); }
+  if (v === 'home') renderHome();
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => showView(b.dataset.v));
+
+
+// ---------- theme (light / dark) ----------
+function systemTheme() {
+  try { return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; } catch { return 'light'; }
+}
+function applyTheme(mode) {
+  const m = mode === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', m);
+  const btn = $('themeBtn');
+  if (btn) {
+    // icons are swapped purely by CSS (data-theme); just update a11y label
+    btn.setAttribute('aria-label', m === 'dark' ? t('themeLight') : t('themeDark'));
+    btn.title = btn.getAttribute('aria-label');
+  }
+  me.theme = m; saveMe();
+}
+function toggleTheme() {
+  applyTheme((me.theme || systemTheme()) === 'dark' ? 'light' : 'dark');
+  haptic(8);
+}
+
+// ---------- onboarding ----------
+function maybeOnboard() {
+  if (me.seenOnboard) return;
+  const d = $('onboardDlg');
+  if (!d) return;
+  const go = $('obGo');
+  const close = () => {
+    me.seenOnboard = true; saveMe();
+    if (d.open) d.close();
+  };
+  go.onclick = close;
+  d.addEventListener('cancel', (e) => { e.preventDefault(); close(); }, { once: true });
+  try { d.showModal(); } catch {}
+}
+
+// ---------- swipe to next note ----------
+(function setupSwipe() {
+  const n = $('note');
+  if (!n) return;
+  let x0 = 0, y0 = 0, dx = 0, dy = 0, tracking = false, locked = false;
+  const THRESH = 72;
+  n.addEventListener('pointerdown', e => {
+    if (n.classList.contains('empty')) return;
+    if (e.target.closest('button, a, input, textarea, .replies')) return;
+    tracking = true; locked = false; dx = 0; dy = 0;
+    x0 = e.clientX; y0 = e.clientY;
+    n.classList.add('swiping');
+    try { n.setPointerCapture(e.pointerId); } catch {}
+  });
+  n.addEventListener('pointermove', e => {
+    if (!tracking) return;
+    dx = e.clientX - x0; dy = e.clientY - y0;
+    if (!locked) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dy) > Math.abs(dx)) { tracking = false; n.classList.remove('swiping'); n.style.transform = ''; return; }
+      locked = true;
+    }
+    e.preventDefault();
+    const rot = dx * 0.04;
+    const op = Math.max(0.55, 1 - Math.abs(dx) / 420);
+    n.style.transform = 'translateX(' + dx + 'px) rotate(' + rot + 'deg)';
+    n.style.opacity = String(op);
+  });
+  const end = e => {
+    if (!tracking) return;
+    tracking = false; n.classList.remove('swiping');
+    const go = locked && Math.abs(dx) > THRESH;
+    n.style.transition = 'transform .32s var(--spring), opacity .28s var(--ease)';
+    if (go) {
+      const dir = dx > 0 ? 1 : -1;
+      n.style.transform = 'translateX(' + (dir * 120) + '%) rotate(' + (dir * 8) + 'deg)';
+      n.style.opacity = '0';
+      haptic(10);
+      setTimeout(() => {
+        n.style.transition = '';
+        n.style.transform = '';
+        n.style.opacity = '';
+        pickNow();
+      }, 220);
+    } else {
+      n.style.transform = '';
+      n.style.opacity = '';
+      setTimeout(() => { n.style.transition = ''; }, 320);
+    }
+  };
+  n.addEventListener('pointerup', end);
+  n.addEventListener('pointercancel', end);
+})();
+
+
+async function pickNow() {
+  if (picking) return; picking = true;
+  const btn = $('rand'); btn.classList.add('busy');
+  try {
+    const n = $('note'), had = !!current && !n.classList.contains('empty');
+    if (had) n.classList.add('out');
+    await Promise.all([loadAll(false).catch(() => {}), had ? sleep(210) : Promise.resolve()]);
+    const m = pickRandom();
+    if (!m) {
+      current = null; setEmpty('noNotes');
+      if (store.listFailed) toast(t('loadFail'));
+      return;
+    }
+    lastShownId = m.id; shown.add(m.id); repliesOpen = false; replyDraft = ''; picked = true;
+    renderNote(m, true); countView(m); haptic(10);
+    btn.textContent = t('randAgain');
+    restart(btn, 'shine');
+    say(t('pickedSr', m.text));
+    renderHome();
+  } finally { btn.classList.remove('busy'); picking = false; }
+}
+$('rand').onclick = pickNow;
+
+// tap the empty card to pick a note
+const noteEl = $('note');
+noteEl.addEventListener('pointerup', e => { if (noteEl.classList.contains('empty') && !e.target.closest('button')) pickNow(); });
+noteEl.addEventListener('keydown', e => { if (noteEl.classList.contains('empty') && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pickNow(); } });
+
+// write: draft is kept, counter only shows near the limit
+let draftTimer = 0;
+function updateCount() {
+  const n = $('txt').value.length, c = $('cnt');
+  c.textContent = n >= 350 ? n + '/500' : '';
+  c.classList.toggle('show', n >= 350); c.classList.toggle('warn', n >= 480);
+}
+$('txt').oninput = () => {
+  updateCount(); $('wmsg').textContent = ''; $('wmsg').className = 'msg';
+  clearTimeout(draftTimer); draftTimer = setTimeout(() => { me.draft = $('txt').value; saveMe(); }, 700);
+};
+function setSendState(done) {
+  const b = $('send'), ic = $('sendIc');
+  b.classList.toggle('done', done);
+  ic.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[done ? 'check' : 'send'] + '</svg>';
+  // label is visually hidden (icon-only button); keep text for a11y
+  const lbl = $('sendLbl');
+  if (lbl) {
+    lbl.textContent = t(done ? 'sentBtn' : 'sendBtn');
+    b.setAttribute('aria-label', lbl.textContent);
+  }
+}
+
+$('send').onclick = async () => {
+  if (sending) return;
+  const out = $('wmsg'); out.className = 'msg';
+  const text = $('txt').value.trim();
+  if (!text) { out.className = 'msg err'; out.textContent = t('typeFirst'); return; }
+  const name = $('nick').value.trim();
+  const why = blockedReason(text) || blockedReason(name);
+  if (why) { out.className = 'msg err'; out.textContent = blockMsg(why); return; }
+  const wait = POST_COOLDOWN - (Date.now() - me.lastPost);
+  if (wait > 0) { out.className = 'msg err'; out.textContent = t('waitPost', Math.ceil(wait / 1000)); return; }
+  sending = true; $('send').classList.add('busy');
+  try {
+    await loadAll(true);
+    if (msgs.some(m => m.text === text)) { out.className = 'msg err'; out.textContent = t('dup'); return; }
+    const now = Date.now();
+    const m = norm({ id: now.toString(36) + Math.random().toString(36).slice(2, 6), text, name, authorId: me.id, ts: now });
+    let ok = await store.set('msg:' + m.id, JSON.stringify(m), true), localOnly = false;
+    if (!ok) {
+      console.error('shared save failed:', store.lastError);
+      ok = await store.set('msg:' + m.id, JSON.stringify(m), false);
+      if (ok) localOnly = true;
+      else { out.className = 'msg err'; out.textContent = t('postFail'); return; }
+    }
+    msgs.unshift(m); me.name = name; me.lastPost = now; me.draft = ''; await saveMe();
+    haptic(14);
+    const w = $('tawrap'), nick = $('nick');
+    // 1) pulse the field
+    w.classList.remove('fly', 'back');
+    restart(w, 'sending');
+    nick.classList.add('dim');
+    await sleep(320);
+    // 2) confetti-ish dots from center
+    const burst = el('div', 'sendburst');
+    for (let i = 0; i < 12; i++) {
+      const d = document.createElement('i');
+      const a = (i / 12) * Math.PI * 2 + Math.random() * 0.3;
+      const dist = 48 + Math.random() * 70;
+      d.style.left = '50%'; d.style.top = '45%';
+      d.style.setProperty('--dx', Math.cos(a) * dist + 'px');
+      d.style.setProperty('--dy', Math.sin(a) * dist + 'px');
+      d.style.animationDelay = (i * 0.02) + 's';
+      d.style.background = i % 3 === 0 ? 'var(--amber)' : (i % 3 === 1 ? 'var(--sage)' : 'var(--heart)');
+      burst.append(d);
+    }
+    w.append(burst);
+    // 3) success checkmark only (center of field)
+    const okBadge = el('div', 'sendok');
+    const okIc = el('span', 'ic');
+    okIc.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON.check + '</svg>';
+    okBadge.append(okIc);
+    w.append(okBadge);
+    setSendState(true);
+    if (localOnly) toast(t('localOnly'), 2200);
+    else toast(t('posted'), 1600);
+    await sleep(520);
+    // 4) field flies up
+    w.classList.remove('sending');
+    w.classList.add('fly');
+    await sleep(520);
+    $('txt').value = ''; updateCount();
+    burst.remove(); okBadge.classList.add('out');
+    await sleep(180);
+    okBadge.remove();
+    w.classList.remove('fly');
+    restart(w, 'back');
+    nick.classList.remove('dim');
+    renderHome();
+    await sleep(900);
+    setSendState(false);
+  } finally { sending = false; $('send').classList.remove('busy'); }
+};
+
+// refresh when the app comes back to the foreground
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden || Date.now() - loadedAt < 60000) return;
+  await loadAll(true).catch(() => {});
+  const v = (document.querySelector('.view.on') || {}).id;
+  if (v === 'v-home') renderHome();
+  if (v === 'v-me') renderMe();
+});
+
+// ---------- init ----------
+(async function init() {
+  applyLang();
+  await store.ready;
+  $('banner').style.display = 'none';   /* never show trial/demo banner */
+  const raw = await store.get('me', false);
+  if (raw) {
+    try {
+      const p = JSON.parse(raw); Object.assign(me, p);
+      if (Array.isArray(p.liked)) { p.liked.forEach(id => { me.rx[id] = { t: 'heart', at: 0 }; }); delete me.liked; }
+    } catch {}
+  }
+  me.rx = me.rx || {}; me.saved = me.saved || []; me.snap = me.snap || {}; me.reported = me.reported || [];
+  const sh = me.sh || {};
+  if (THEMES[sh.style]) shareStyle = manualStyle = sh.style;
+  if (typeof sh.auto === 'boolean') shareAuto = sh.auto;
+  if (Array.isArray(sh.fav)) shareFav = sh.fav.filter(id => THEMES[id]);
+  if (FONTS[sh.font]) shareFont = sh.font;
+  if (SHARE_FMT[sh.fmt]) shareFmt = sh.fmt;
+  if (Number.isInteger(sh.level)) shareLevel = Math.max(-6, Math.min(8, sh.level));
+  if (me.lang === 'en' || me.lang === 'th') { lang = me.lang; applyLang(); }
+  $('nick').value = me.name || '';
+  if (me.draft) { $('txt').value = me.draft; updateCount(); }
+  setSendState(false);
+  if (!me.theme) me.theme = systemTheme();
+  applyTheme(me.theme);
+  const tb = $('themeBtn'); if (tb) tb.onclick = toggleTheme;
+  await saveMe();
+  await loadAll(true);
+  pruneMe();
+  renderHome();
+  maybeOnboard();
+})();
+</script>
+</body>
+</html>
